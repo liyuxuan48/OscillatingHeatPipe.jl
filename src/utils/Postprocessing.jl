@@ -264,8 +264,8 @@ function oneDtwoDtransform(ξ,sr::SimulationResult)
 
     @unpack x,y = ohp.transform(ohp.shape)
 
-    interp_linear_x = LinearInterpolation(arccoord(ohp.shape), x,extrapolation_bc = Line());
-    interp_linear_y = LinearInterpolation(arccoord(ohp.shape), y,extrapolation_bc = Line());
+    interp_linear_x = LinearInterpolation(arccoordmid(ohp.shape), x,extrapolation_bc = Line());
+    interp_linear_y = LinearInterpolation(arccoordmid(ohp.shape), y,extrapolation_bc = Line());
 
     x2D = interp_linear_x[ξ]
     y2D = interp_linear_y[ξ];
