@@ -22,7 +22,7 @@ function onesideXp(ohp,tube::Tube,line)
 
     ls_label = xor.(largeorsmall, [largeorsmall[2:end];largeorsmall[1]])
     X0array_label = findall(!iszero,ls_label)
-    X0array = ohp.arccoord[X0array_label]
+    X0array = ohp.arccoordmid[X0array_label]
 
     X0 = map(tuple,X0array[1:2:end], X0array[2:2:end])
 
@@ -197,7 +197,7 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
     Xstation_time = zeros(nucleatenum);
     boil_type = "wall T"
     boil_interval = boil_waiting_time
-    Xwallarray,θwallarray,curvwallarray = constructwallXθarray(arccoord(ohp.shape),Tref,curvature(ohp.shape));
+    Xwallarray,θwallarray,curvwallarray = constructwallXθarray(arccoordmid(ohp.shape),Tref,curvature(ohp.shape));
     wall = Wall(boil_interval=boil_interval,fluid_type=fluid_type,boil_type=boil_type,power=power,L_newbubble=L_newbubble,Xstations=Xstations,boiltime_stations=Xstation_time,Xarray=Xwallarray,θarray=θwallarray,curvarray=curvwallarray,Rn=Rn_boil);
 
     # Mapping

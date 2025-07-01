@@ -14,7 +14,7 @@ using Reexport
 using OrdinaryDiffEqLowOrderRK
 
 @reexport using ComputationalHeatTransfer
-import RigidBodyTools: arccoord,arclength
+import RigidBodyTools: arccoordmid,arclength
 
 export expfileDict,INCHES, GRAVITY
 
