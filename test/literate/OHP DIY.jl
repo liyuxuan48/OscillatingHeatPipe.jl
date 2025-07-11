@@ -227,7 +227,7 @@ u_plate = init_sol(sys_plate)# initialize plate T field to uniform Tref
 integrator_plate = init(u_plate,tspan_init,sys_plate,save_on=false) # construct integrator_plate
 
 # Set the tubes time span for simulation and its initial condition
-tspan = (0.0, 1.0); # start time and end time
+tspan = (0.0, 5.0); # start time and end time
 dt_record = 0.2   # saving time interval
 u_tube = newstate(sys_tube) # initialize OHP tube
 integrator_tube = init(u_tube,tspan,sys_tube); # construct integrator_tube

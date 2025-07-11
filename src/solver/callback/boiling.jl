@@ -10,8 +10,6 @@ end
 
 function boiling_affect!(integrator)
 
-    # Δθthreshold = integrator.p.wall.ΔTthres
-
     p = deepcopy(getcurrentsys!(integrator.u,integrator.p))
 
     @unpack wall, propconvert, tube, vapor, liquid = p
@@ -19,22 +17,20 @@ function boiling_affect!(integrator)
     @unpack boil_type, boil_interval, Rn, Xstations, boiltime_stations, L_newbubble = wall
     @unpack d = tube
     @unpack P = vapor
-    @unpack Xp, dXdt = liquid
 
     Tref = (PtoT.(maximum(P)) + PtoT.(minimum(P)))/2
 
     Δθthreshold = RntoΔT(Rn,Tref,fluid_type,d,TtoP)
-
-    # println(Δθthreshold)
   
     Δθ_array = getsuperheat.(Xstations,Ref(p))
     superheat_flag = (Δθ_array .> Δθthreshold) .* ((integrator.t .- p.wall.boiltime_stations) .> boil_interval)
 
-    # println(p.wall.boiltime_stations)
     b_count = 0;
     boiltime_update_flags = Bool.(zero(boiltime_stations))
-    for i = 1:length(Xstations)
-        if ifamong(Xstations[i], Xp) && suitable_for_boiling(p,i) && superheat_flag[i]
+
+    # in the loop below, p.liquid.Xp cannot be replaced by Xp, because p will change within the loop
+    for i in eachindex(Xstations)
+        if ifamong(Xstations[i], p.liquid.Xp) && suitable_for_boiling(p,i) && superheat_flag[i]
                 push!(integrator.p.cache.boil_hist,[i,integrator.t]);
                 b_count += 1;
 
