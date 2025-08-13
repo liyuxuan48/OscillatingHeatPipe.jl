@@ -6,7 +6,7 @@ using Interpolations
 using LinearAlgebra
 using RecipesBase
 using UnPack
-using CartesianGrids
+# using CartesianGrids
 # using Plots
 using Statistics
 using SparseArrays 
@@ -14,7 +14,7 @@ using Reexport
 using OrdinaryDiffEqLowOrderRK
 
 @reexport using ComputationalHeatTransfer
-import RigidBodyTools: arccoordmid,arclength
+# import RigidBodyTools: arccoordmid,arclength
 
 export expfileDict,INCHES, GRAVITY
 

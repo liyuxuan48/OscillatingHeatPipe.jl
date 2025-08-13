@@ -12,11 +12,11 @@ function createCoolPropinterpolation(fluid_type::String,numofpoints=10000)
     Hₗrange = CoolProp.PropsSI.("H","T",Trange,"Q",0.0,fluid_type);
     Hfgrange = Hᵥrange .- Hₗrange
 
-    PtoT = LinearInterpolation(Prange, Trange);
-    TtoP = LinearInterpolation(Trange, Prange);
-    PtoD = LinearInterpolation(Prange, Drange);
-    DtoP = LinearInterpolation(Drange, Prange);
-    PtoHfg = LinearInterpolation(Prange, Hfgrange);
+    PtoT = linear_interpolation(Prange, Trange);
+    TtoP = linear_interpolation(Trange, Prange);
+    PtoD = linear_interpolation(Prange, Drange);
+    DtoP = linear_interpolation(Drange, Prange);
+    PtoHfg = linear_interpolation(Prange, Hfgrange);
 
     PtoT,TtoP,PtoD,DtoP,PtoHfg
 end

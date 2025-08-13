@@ -205,7 +205,7 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
     sys0_nomapping = PHPSystem_nomapping(tube,liquids,vapors,wall,propconvert);
     θ_interp_walltoliquid, curv_interp_walltoliquid, θ_interp_liquidtowall, H_interp_liquidtowall, P_interp_liquidtowall = sys_interpolation(sys0_nomapping)
     ht = getgh(g,x,y);
-    heightg_interp = LinearInterpolation(Xwallarray,ht,extrapolation_bc = Line())
+    heightg_interp = linear_interpolation(Xwallarray,ht,extrapolation_bc = Line())
     mapping = Mapping(θ_interp_walltoliquid, curv_interp_walltoliquid, θ_interp_liquidtowall, H_interp_liquidtowall, P_interp_liquidtowall,heightg_interp);
 
     # Cache
