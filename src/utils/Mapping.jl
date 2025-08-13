@@ -74,13 +74,13 @@ function sys_interpolation_openloop(sys)
     Interpolations.deduplicate_knots!(extend_wall_Xarray,move_knots = true)
     Interpolations.deduplicate_knots!(X_inner_pres,move_knots = true)
 
-    θ_interp_liquidtowall = LinearInterpolation(X_inner, θ_inner);
+    θ_interp_liquidtowall = linear_interpolation(X_inner, θ_inner);
 
-    H_interp_liquidtowall = LinearInterpolation(X_inner, H_inner);
+    H_interp_liquidtowall = linear_interpolation(X_inner, H_inner);
 
-    θ_interp_walltoliquid = LinearInterpolation(extend_wall_Xarray, extend_wall_θarray);
+    θ_interp_walltoliquid = linear_interpolation(extend_wall_Xarray, extend_wall_θarray);
 
-    P_interp_liquidtowall = LinearInterpolation(X_inner_pres, P_inner);
+    P_interp_liquidtowall = linear_interpolation(X_inner_pres, P_inner);
 
 
     return θ_interp_walltoliquid, θ_interp_liquidtowall, H_interp_liquidtowall, P_interp_liquidtowall
@@ -206,15 +206,15 @@ end
     Interpolations.deduplicate_knots!(extend_wall_Xarray,move_knots = true)
     Interpolations.deduplicate_knots!(X_inner_pres_final,move_knots = true)
 
-    θ_interp_liquidtowall = LinearInterpolation(X_inner_final, θ_inner_final);
+    θ_interp_liquidtowall = linear_interpolation(X_inner_final, θ_inner_final);
 
-    H_interp_liquidtowall = LinearInterpolation(X_inner_final, H_inner_final);
+    H_interp_liquidtowall = linear_interpolation(X_inner_final, H_inner_final);
 
-    θ_interp_walltoliquid = LinearInterpolation(extend_wall_Xarray, extend_wall_θarray);
+    θ_interp_walltoliquid = linear_interpolation(extend_wall_Xarray, extend_wall_θarray);
 
-    curv_interp_walltoliquid = LinearInterpolation(extend_wall_Xarray, extend_wall_curvarray)
+    curv_interp_walltoliquid = linear_interpolation(extend_wall_Xarray, extend_wall_curvarray)
 
-    P_interp_liquidtowall = LinearInterpolation(X_inner_pres_final, P_inner_final);
+    P_interp_liquidtowall = linear_interpolation(X_inner_pres_final, P_inner_final);
 
 
     return θ_interp_walltoliquid, curv_interp_walltoliquid, θ_interp_liquidtowall, H_interp_liquidtowall, P_interp_liquidtowall
@@ -325,5 +325,5 @@ function slug_interp(sys::PHPSystem)
 
     Interpolations.deduplicate_knots!(Xslugs,move_knots = true)
 
-    sluginterp = LinearInterpolation(Xslugs, slug_flags);
+    sluginterp = linear_interpolation(Xslugs, slug_flags);
 end
