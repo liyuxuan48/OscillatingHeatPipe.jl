@@ -10,6 +10,7 @@
 using OscillatingHeatPipe # our main package
 using Plots # for plotting
 using ProgressMeter # to have a progress bar in the calculation
+using JLD2 # to save and load data
 
 #   # Specify properties
 
@@ -247,10 +248,14 @@ SimuResult = SimulationResult(integrator_tube,integrator_plate);
 
 end
 
-#   # Store data
+  # Store data
 
-#save_path = "../numedata/solution.jld2"
-#save(save_path,"SimulationResult",SimuResult)
+save_path = "solution.jld2"
+save(save_path,"SimulationResult",SimuResult)
+
+# # Read data
+# load_path = "solution.jld2"
+# load(load_path,"SimulationResult")
 
 # ### take a peek at the solution (more at the PostProcessing notebook)
 # First, a movie of temperature in the plate
