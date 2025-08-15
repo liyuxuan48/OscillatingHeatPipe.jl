@@ -94,6 +94,8 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
     Nvapor = length(P)
     loop_plus_index = [2:Nvapor;1]
     loop_plus_index_new = [3:Nvapor+1;1:2]
+    loop_minus_index = [Nvapor;1:Nvapor-1]
+    loop_minus_index_new = [Nvapor+1;1:Nvapor]
 
     Lfilm_start_new = insert!(Lfilm_start,index+1,Linsert/8)
     Lfilm_end_new = insert!(Lfilm_end,index+1,Linsert/8)
@@ -130,23 +132,38 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
     Lliquidslug = XptoLliquidslug(Xpnew,sys.tube.L)
 
 
-
     maxindex = 0;
 
     if L_adjust < 0
-        L_newbubble = sysnew.wall.L_newbubble
-        L_adjust = (-L_adjust > L_newbubble) ? -L_newbubble : L_adjust
+        L_adjust_max = DEFAULT_L_ADJUST_MAX*sysnew.wall.L_newbubble
+        L_adjust = (-L_adjust > L_adjust_max) ? -L_adjust_max : L_adjust
 
-        maxvalueindex = findmax(Lpurevapor)
+        Lvapor_maxvalueindex = findmax(Lvaporplug)
+        # maxvalue = maxvalueindex[1]
+        maxindex = Lvapor_maxvalueindex[2]
+
+        maxvalueindex = findmax([Lpurevapor[maxindex],Lfilm_start_new[maxindex],Lfilm_end_new[maxindex]])
         maxvalue = maxvalueindex[1]
-        maxindex = maxvalueindex[2]
+        maxvalue_type = maxvalueindex[2]
 
-        if maxvalue > L_adjust
-            sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust,sysnew.liquid.Xp[maxindex][2]),L)
-            # println(L_adjust, "-")
+        if maxvalue > -L_adjust
+            Afilm = getδarea(Ac,d,δstart_new[maxindex])
+            factor_adjust = Ac/(Ac-Afilm)
+
+            if maxvalue_type == 1
+                sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust,sysnew.liquid.Xp[maxindex][2]),L)
+            elseif maxvalue_type == 2
+                sysnew.vapor.Lfilm_start[maxindex] = sysnew.vapor.Lfilm_start[maxindex] + L_adjust*factor_adjust
+                sysnew.liquid.Xp[loop_minus_index_new[maxindex]] = mod.((sysnew.liquid.Xp[loop_minus_index_new[maxindex]][1],sysnew.liquid.Xp[loop_minus_index_new[maxindex]][2]-L_adjust*factor_adjust),L) 
+            elseif maxvalue_type == 3
+                sysnew.vapor.Lfilm_end[maxindex] = sysnew.vapor.Lfilm_end[maxindex] + L_adjust*factor_adjust
+                sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust*factor_adjust,sysnew.liquid.Xp[maxindex][2]),L)   
+            else
+                println("error in liquid merging, maxvalue_type is not 1,2,3")
+            end
         else 
             maxindex = 0
-            println("boiling error!")
+            println("mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass consercation may be off so check it!")
         end
     else
         # L_newbubble = sysnew.wall.L_newbubble
@@ -160,7 +177,7 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
             sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust,sysnew.liquid.Xp[maxindex][2]),L)
         else 
             maxindex = 0
-            println("boiling error!")
+            println("mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass consercation may be off so check it!")
         end
     end
 
@@ -176,8 +193,6 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
     heightg_interp = sysnew.mapping.heightg_interp
     sysnew.mapping = Mapping(θ_interp_walltoliquid, curv_interp_walltoliquid, θ_interp_liquidtowall, H_interp_liquidtowall, P_interp_liquidtowall,heightg_interp)
     # sysnew.mapping = Mapping(θ_interp_walltoliquid, θ_interp_liquidtowall, H_interp_liquidtowall, P_interp_liquidtowall)
-
-    # println(Pnew[index-2:index+5])
 
 return sysnew
 end
