@@ -139,12 +139,11 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
         L_adjust = (-L_adjust > L_adjust_max) ? -L_adjust_max : L_adjust
 
         Lvapor_maxvalueindex = findmax(Lvaporplug)
-        # maxvalue = maxvalueindex[1]
         maxindex = Lvapor_maxvalueindex[2]
 
         maxvalueindex = findmax([Lpurevapor[maxindex],Lfilm_start_new[maxindex],Lfilm_end_new[maxindex]])
         maxvalue = maxvalueindex[1]
-        maxvalue_type = maxvalueindex[2]
+        maxvalue_type = maxvalueindex[2] # find the section with largest length for future shrinking, 1: Lpurevapor, 2: Lfilm_start, 3: Lfilm_end
 
         if maxvalue > -L_adjust
             Afilm = getδarea(Ac,d,δstart_new[maxindex])
@@ -169,9 +168,10 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
         # L_newbubble = sysnew.wall.L_newbubble
         # L_adjust = (L_adjust > L_newbubble) ? L_newbubble : L_adjust
 
-        maxvalueindex = findmax(Lliquidslug)
-        maxvalue = maxvalueindex[1]
-        maxindex = maxvalueindex[2]
+        Lliquid_maxvalueindex = findmax(Lliquidslug)
+        maxvalue = Lliquid_maxvalueindex[1]
+        maxindex = Lliquid_maxvalueindex[2]
+        maxvalue_type = 1 # when vapor part needs to increase length, we only increase the Lpurevapor, 1: Lpurevapor, 2: Lfilm_start, 3: Lfilm_end
 
         if maxvalue > L_adjust
             sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust,sysnew.liquid.Xp[maxindex][2]),L)
@@ -183,7 +183,7 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
 
     # up to now we got the correct Xpnew, next step is to get Xarraysnew, the splitted Xarrays.
 
-    Xarraysnew,θarraysnew = getnewXθarrays(index,sysnew.liquid.Xp,Xarrays,θarrays,L,maxindex)
+    Xarraysnew,θarraysnew = getnewXθarrays(index,sysnew.liquid.Xp,Xarrays,θarrays,L,maxindex,maxvalue_type)
     # θarraysnew = getnewθarrays(index,Xp,sysnew.liquid.Xp,Xarrays,θarrays,L,closedornot)
 
     sysnew.liquid.Xarrays = Xarraysnew
@@ -197,7 +197,10 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
 return sysnew
 end
 
-function getnewXθarrays(index,Xpnew,Xarrays_old,θarrays_old,L,maxindex)
+function getnewXθarrays(index,Xpnew,Xarrays_old,θarrays_old,L,maxindex,maxvalue_type)
+    Nvaporplug = length(Xpnew)
+    maxindex_minus = (maxindex != 1) ? maxindex-1 : Nvaporplug
+
     Nold= length(Xarrays_old[index])
 
     Xarraysnew = deepcopy(Xarrays_old)
@@ -227,7 +230,13 @@ function getnewXθarrays(index,Xpnew,Xarrays_old,θarrays_old,L,maxindex)
     insert!(θarraysnew, index+1,θarraysnewright)
 
     if maxindex != 0
-        Xarraysnew[maxindex] = constructoneXarray(Xpnew[maxindex],length(Xarraysnew[maxindex]),L)
+        if maxvalue_type == 1 || maxvalue_type == 3
+            Xarraysnew[maxindex] = constructoneXarray(Xpnew[maxindex],length(Xarraysnew[maxindex]),L)
+        elseif maxvalue_type == 2
+            Xarraysnew[maxindex_minus] = constructoneXarray(Xpnew[maxindex_minus],length(Xarraysnew[maxindex_minus]),L)
+        else 
+            println("error in liquid merging, maxvalue_type is not 1,2,3")
+        end
     end
 
     Xarraysnew,θarraysnew
