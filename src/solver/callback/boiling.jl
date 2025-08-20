@@ -133,37 +133,67 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
 
 
     maxindex = 0;
-
+    maxvalue_type = 0;
+    # L_adjust < 0 # means we need to shrink the vapor part, I sill first try to shrink the pure vapor part, then the film part.
     if L_adjust < 0
-        L_adjust_max = DEFAULT_L_ADJUST_MAX*sysnew.wall.L_newbubble
+
+        # This part is to limit the shrinking length, so that it will not shrink too much and look unphysical for one boiling event.
+        L_adjust_max = DEFAULT_L_ADJUST_MAX_FACTOR*sysnew.wall.L_newbubble
         L_adjust = (-L_adjust > L_adjust_max) ? -L_adjust_max : L_adjust
 
-        Lvapor_maxvalueindex = findmax(Lvaporplug)
-        maxindex = Lvapor_maxvalueindex[2]
+        # This part try to find the maximum length of the pure vapor, and try to shrink it first.
+        Lpurevapor_maxvalueindex = findmax(Lpurevapor)
+        Lpurevapor_maxvalue = Lpurevapor_maxvalueindex[1]
+        Lpurevapor_maxindex = Lpurevapor_maxvalueindex[2]
 
-        maxvalueindex = findmax([Lpurevapor[maxindex],Lfilm_start_new[maxindex],Lfilm_end_new[maxindex]])
-        maxvalue = maxvalueindex[1]
-        maxvalue_type = maxvalueindex[2] # find the section with largest length for future shrinking, 1: Lpurevapor, 2: Lfilm_start, 3: Lfilm_end
+        # If the longest pure vapor part is long enough we will shrink it first.
+        if Lpurevapor_maxvalue > -L_adjust
+            maxvalue = Lpurevapor_maxvalue
+            maxindex = Lpurevapor_maxindex
+            maxvalue_type = 3 # 1: Lfilm_start, 2: Lfilm_end , 3: Lpurevapor
 
-        if maxvalue > -L_adjust
-            Afilm = getδarea(Ac,d,δstart_new[maxindex])
-            factor_adjust = Ac/(Ac-Afilm)
+            sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust,sysnew.liquid.Xp[maxindex][2]),L)
+        # If the longest pure vapor part is not long enough we will shrink the longest liquid film part.   
+        else
+            # find the index of the longest total liquid film part, then find the side of the longest liquid film part, then shrink it.
+            maxindex = findmax([Lfilm_start_new .+ Lfilm_end_new])[2]
+
+            Lfilm_maxvalueindex = findmax([Lfilm_start_new[maxindex],Lfilm_end_new[maxindex]])
+            maxvalue = Lfilm_maxvalueindex[1]
+            maxvalue_type = Lfilm_maxvalueindex[2] # find the section with largest length for future shrinking, 1: Lfilm_start, 2: Lfilm_end, 3: Lpurevapor
 
             if maxvalue_type == 1
-                sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust,sysnew.liquid.Xp[maxindex][2]),L)
-            elseif maxvalue_type == 2
+                Afilm = getδarea(Ac,d,δstart_new[maxindex])
+                factor_adjust = Ac/(Ac-Afilm)
+
+                if maxvalue > -L_adjust*factor_adjust
+
                 sysnew.vapor.Lfilm_start[maxindex] = sysnew.vapor.Lfilm_start[maxindex] + L_adjust*factor_adjust
                 sysnew.liquid.Xp[loop_minus_index_new[maxindex]] = mod.((sysnew.liquid.Xp[loop_minus_index_new[maxindex]][1],sysnew.liquid.Xp[loop_minus_index_new[maxindex]][2]-L_adjust*factor_adjust),L) 
-            elseif maxvalue_type == 3
+
+                else 
+                    println("mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass consercation may be off so check it!")
+                end
+
+            elseif maxvalue_type == 2
+                Afilm = getδarea(Ac,d,δend_new[maxindex])
+                factor_adjust = Ac/(Ac-Afilm)
+
+                if maxvalue > -L_adjust*factor_adjust
+
                 sysnew.vapor.Lfilm_end[maxindex] = sysnew.vapor.Lfilm_end[maxindex] + L_adjust*factor_adjust
                 sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust*factor_adjust,sysnew.liquid.Xp[maxindex][2]),L)   
+   
+                else 
+                    println("mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass consercation may be off so check it!")
+                end
             else
                 println("error in liquid merging, maxvalue_type is not 1,2,3")
             end
-        else 
-            maxindex = 0
-            println("mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass consercation may be off so check it!")
         end
+
+
+        # L_adjust > 0 # means we need to increase the vapor part, I will always increase the pure vapor part.
     else
         # L_newbubble = sysnew.wall.L_newbubble
         # L_adjust = (L_adjust > L_newbubble) ? L_newbubble : L_adjust
