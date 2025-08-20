@@ -160,7 +160,10 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
                                                         σcharge=DEFAULT_SIGMA_CHARGE)
 
     # unpack CoolProp Properties
-    @unpack fluid_type,Tref,kₗ,ρₗ,Cpₗ,αₗ,μₗ,σ = p_fluid  
+    @unpack fluid_type,kₗ,ρₗ,Cpₗ,αₗ,μₗ,σ = p_fluid  
+
+    # get background temperature as initial temperature, this can be different from Tref
+    Tback = sys.phys_params["background temperature"]
 
     # PropConvert
     # an interpolation between different working fluid propeties (currently assuming saturated gas curve)
@@ -176,7 +179,7 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
     # Liquid
     Hₗ = p_fluid.kₗ/d * Nu # Nusselt number given
     X0,dXdt0,realratio = randomXp(tube,numofslugs=slugnum,chargeratio=ch_ratio,σ_charge=σcharge)
-    Xarrays,θarrays = constructXarrays(X0,N,Tref,L)
+    Xarrays,θarrays = constructXarrays(X0,N,Tback,L)
     
     liquids=Liquid(Hₗ,ρₗ,Cpₗ,αₗ,μₗ,σ,X0,dXdt0,Xarrays,θarrays)
 
@@ -184,7 +187,7 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
     @unpack TtoP = propconvert
 
     Lvaporplug = XptoLvaporplug(X0,L,tube.closedornot)
-    P_initial = zero(Lvaporplug) .+ TtoP(Tref)
+    P_initial = zero(Lvaporplug) .+ TtoP(Tback)
     δfilm = δfilm_relative * d/2
     δstart_initial = zero(Lvaporplug) .+ δfilm
     δend_initial   = zero(Lvaporplug) .+ δfilm
@@ -197,7 +200,7 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
     Xstation_time = zeros(nucleatenum);
     boil_type = "wall T"
     boil_interval = boil_waiting_time
-    Xwallarray,θwallarray,curvwallarray = constructwallXθarray(arccoordmid(ohp.shape),Tref,curvature(ohp.shape));
+    Xwallarray,θwallarray,curvwallarray = constructwallXθarray(arccoordmid(ohp.shape),Tback,curvature(ohp.shape));
     wall = Wall(boil_interval=boil_interval,fluid_type=fluid_type,boil_type=boil_type,power=power,L_newbubble=L_newbubble,Xstations=Xstations,boiltime_stations=Xstation_time,Xarray=Xwallarray,θarray=θwallarray,curvarray=curvwallarray,Rn=Rn_boil);
 
     # Mapping

@@ -156,7 +156,7 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
         # If the longest pure vapor part is not long enough we will shrink the longest liquid film part.   
         else
             # find the index of the longest total liquid film part, then find the side of the longest liquid film part, then shrink it.
-            maxindex = findmax([Lfilm_start_new .+ Lfilm_end_new])[2]
+            maxindex = findmax(Lfilm_start_new .+ Lfilm_end_new)[2]
 
             Lfilm_maxvalueindex = findmax([Lfilm_start_new[maxindex],Lfilm_end_new[maxindex]])
             maxvalue = Lfilm_maxvalueindex[1]
@@ -172,7 +172,12 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
                 sysnew.liquid.Xp[loop_minus_index_new[maxindex]] = mod.((sysnew.liquid.Xp[loop_minus_index_new[maxindex]][1],sysnew.liquid.Xp[loop_minus_index_new[maxindex]][2]-L_adjust*factor_adjust),L) 
 
                 else 
-                    println("mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass consercation may be off so check it!")
+                    println("L_adjust:",L_adjust)
+                    println("maxvalue:",maxvalue)
+                    println("maxvalue_type:",maxvalue_type)
+                    println("factor_adjust:",factor_adjust)
+                    println("case1: mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass conservation may be off so check it!")
+                    throw("boiling function cannot shrink or expand a liquid slug")
                 end
 
             elseif maxvalue_type == 2
@@ -185,10 +190,15 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
                 sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust*factor_adjust,sysnew.liquid.Xp[maxindex][2]),L)   
    
                 else 
-                    println("mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass consercation may be off so check it!")
+                    println("L_adjust:",L_adjust)
+                    println("maxvalue:",maxvalue)
+                    println("maxvalue_type:",maxvalue_type)
+                    println("factor_adjust:",factor_adjust)
+                    println("case2: mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass conservation may be off so check it!")
+                    throw("boiling function cannot shrink or expand a liquid slug")
                 end
             else
-                println("error in liquid merging, maxvalue_type is not 1,2,3")
+                throw("error in liquid merging, maxvalue_type is not 1,2,3")
             end
         end
 
@@ -206,8 +216,13 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
         if maxvalue > L_adjust
             sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust,sysnew.liquid.Xp[maxindex][2]),L)
         else 
-            maxindex = 0
-            println("mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass consercation may be off so check it!")
+            # maxindex = 0
+            println("L_adjust:",L_adjust)
+            println("maxvalue:",maxvalue)
+            println("maxvalue_type:",maxvalue_type)
+            println("factor_adjust:",factor_adjust)
+            println("case3: mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass conservation may be off so check it!")
+            throw("boiling function cannot shrink or expand a liquid slug")
         end
     end
 
