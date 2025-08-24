@@ -275,9 +275,9 @@ function getnewXθarrays(index,Xpnew,Xarrays_old,θarrays_old,L,maxindex,maxvalu
     insert!(θarraysnew, index+1,θarraysnewright)
 
     if maxindex != 0
-        if maxvalue_type == 1 || maxvalue_type == 3
+        if maxvalue_type == 2 || maxvalue_type == 3
             Xarraysnew[maxindex] = constructoneXarray(Xpnew[maxindex],length(Xarraysnew[maxindex]),L)
-        elseif maxvalue_type == 2
+        elseif maxvalue_type == 1
             Xarraysnew[maxindex_minus] = constructoneXarray(Xpnew[maxindex_minus],length(Xarraysnew[maxindex_minus]),L)
         else 
             println("error in liquid merging, maxvalue_type is not 1,2,3")
