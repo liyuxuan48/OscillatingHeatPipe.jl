@@ -38,7 +38,7 @@ end
     randomXp(L::Real,Lmin::Real,closedornot::Bool;[numofslugs=30,chargeratio=0.46,σ_charge=0.01])
 
 Generates a random distribution of `numofslugs` liquid slugs in a length `L`,
-with a nominal liquid slug volume fraction `liquid_charge_ratio` and with length standard deviation
+with a nominal liquid slug volume fraction `liquid_realratio` and with length standard deviation
 `σ_charge`.
 
 It outputs: an array of tuple of the liquid slug start/end arc length coordinates, 
@@ -97,9 +97,9 @@ function randomXp(L::Real,Lmin::Real,closedornot::Bool;numofslugs=DEFAULT_SLUGNU
 
     X0 = map(tuple,Xp1s,Xp2s)
     dXdt0 = [zero.(X) for X in X0]
-    liquid_charge_ratio = sum(Ls)/L
+    liquid_realratio = sum(Ls)/L
 
-    X0,dXdt0,liquid_charge_ratio
+    X0,dXdt0,liquid_realratio
 end
 
 """
@@ -178,7 +178,7 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
 
     # Liquid
     Hₗ = p_fluid.kₗ/d * Nu # Nusselt number given
-    X0,dXdt0,liquid_charge_ratio = randomXp(tube,numofslugs=slugnum,chargeratio=ch_ratio,σ_charge=σcharge) # chargeratio here is nominal volume fraction for liquid slugs only, it is slightly different from actual volume fraction.
+    X0,dXdt0,liquid_realratio = randomXp(tube,numofslugs=slugnum,chargeratio=ch_ratio,σ_charge=σcharge) # chargeratio here is nominal volume fraction for liquid slugs only, it is slightly different from actual volume fraction.
     Xarrays,θarrays = constructXarrays(X0,N,Tback,L)
     
     liquids=Liquid(Hₗ,ρₗ,Cpₗ,αₗ,μₗ,σ,X0,dXdt0,Xarrays,θarrays)
