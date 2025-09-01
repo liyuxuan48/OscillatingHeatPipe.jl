@@ -35,10 +35,10 @@ function onesideXp(ohp,tube::Tube,line)
 end
 
 """
-    randomXp(L::Real,Lmin::Real,closedornot::Bool;[numofslugs=30,chargeratio=0.46,σ_charge=0.1])
+    randomXp(L::Real,Lmin::Real,closedornot::Bool;[numofslugs=30,chargeratio=0.46,σ_charge=0.01])
 
 Generates a random distribution of `numofslugs` liquid slugs in a length `L`,
-with a nominal volume fraction `chargeratio` and with length standard deviation
+with a nominal liquid slug volume fraction `liquid_charge_ratio` and with length standard deviation
 `σ_charge`.
 
 It outputs: an array of tuple of the liquid slug start/end arc length coordinates, 
@@ -52,7 +52,7 @@ function randomXp(tube::Tube; kwargs...)
 end
 
 function randomXp(L::Real,Lmin::Real,closedornot::Bool;numofslugs=DEFAULT_SLUGNUM,
-                                                       chargeratio=DEFAULT_CHARGE_RATIO,
+                                                       chargeratio=DEFAULT_LIQUID_CHARGE_RATIO,
                                                        σ_charge=DEFAULT_SIGMA_CHARGE)
 
 
@@ -61,7 +61,7 @@ function randomXp(L::Real,Lmin::Real,closedornot::Bool;numofslugs=DEFAULT_SLUGNU
     L_perslug=L/numofslugs*chargeratio
     L_persection=L/numofslugs
 
-    Ls = abs.((rand(numofslugs) .- 0.5).*σ_persection .+ L_perslug)
+    Ls = abs.((rand(numofslugs) .- 0.5).*sqrt(12).*σ_persection .+ L_perslug)
 
     Xp1s = zeros(numofslugs);
     Xp2s = deepcopy(Xp1s);
@@ -97,9 +97,9 @@ function randomXp(L::Real,Lmin::Real,closedornot::Bool;numofslugs=DEFAULT_SLUGNU
 
     X0 = map(tuple,Xp1s,Xp2s)
     dXdt0 = [zero.(X) for X in X0]
-    real_ratio = sum(Ls)/L
+    liquid_charge_ratio = sum(Ls)/L
 
-    X0,dXdt0,real_ratio
+    X0,dXdt0,liquid_charge_ratio
 end
 
 """
@@ -133,7 +133,7 @@ end
                                                     nucleatenum=250,
                                                     L_newbubble=6e-3,
                                                     ch_ratio=0.46,
-                                                    σcharge=0.1]) -> PHPSystem
+                                                    σcharge=0.01]) -> PHPSystem
 
 Constructor for the `PHPSystem` type, to initialize an OHP system.
 Initializes the tube, liquid slugs, vapor regions, wall, and the mappings.
@@ -156,7 +156,7 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
                                                         ηminus=DEFAULT_ETAMINUS,
                                                         nucleatenum = DEFAULT_NUCLEATENUM,
                                                         L_newbubble = DEFAULT_L_NEWBUBBLE,
-                                                        ch_ratio=DEFAULT_CHARGE_RATIO,
+                                                        ch_ratio=DEFAULT_LIQUID_CHARGE_RATIO,
                                                         σcharge=DEFAULT_SIGMA_CHARGE)
 
     # unpack CoolProp Properties
@@ -178,7 +178,7 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
 
     # Liquid
     Hₗ = p_fluid.kₗ/d * Nu # Nusselt number given
-    X0,dXdt0,realratio = randomXp(tube,numofslugs=slugnum,chargeratio=ch_ratio,σ_charge=σcharge)
+    X0,dXdt0,liquid_charge_ratio = randomXp(tube,numofslugs=slugnum,chargeratio=ch_ratio,σ_charge=σcharge) # chargeratio here is nominal volume fraction for liquid slugs only, it is slightly different from actual volume fraction.
     Xarrays,θarrays = constructXarrays(X0,N,Tback,L)
     
     liquids=Liquid(Hₗ,ρₗ,Cpₗ,αₗ,μₗ,σ,X0,dXdt0,Xarrays,θarrays)
