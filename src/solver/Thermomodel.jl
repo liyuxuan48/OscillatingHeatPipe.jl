@@ -371,8 +371,8 @@ function dMdtdynamicsmodel(Xpvapor::Array{Tuple{Float64,Float64},1},sys::PHPSyst
 
         dMdt_latent_start[i] = heatflux_start*peri/Hfg[i] + axial_rhs_start
         dMdt_latent_end[i] = heatflux_end*peri/Hfg[i] + axial_rhs_end
-        dMdt_latent_start_positive[i] = heatflux_start_positive*peri/Hfg[i] + axial_rhs_start
-        dMdt_latent_end_positive[i] = heatflux_end_positive*peri/Hfg[i]+ axial_rhs_end
+        dMdt_latent_start_positive[i] = heatflux_start_positive*peri/Hfg[i] + maximum([axial_rhs_start,0.0])
+        dMdt_latent_end_positive[i] = heatflux_end_positive*peri/Hfg[i]+ maximum([axial_rhs_end,0.0])
 
         end
 
@@ -463,20 +463,26 @@ end
 
 function quad_trap(H_interp,θ_interp,θvapor_one, a,b,L,N) 
     h = mod((b-a),L)/N
-    int = h * ( H_interp(a)*(θ_interp(a)-θvapor_one) + H_interp(b)*(θ_interp(b)-θvapor_one) ) / 2
+    mid = mod((a+b)/2,L)
+    H_interp_mid = H_interp(mid)
+
+    int = h * ( H_interp_mid*(θ_interp(a)-θvapor_one) + H_interp_mid*(θ_interp(b)-θvapor_one) ) / 2
     for k=1:N-1
         xk = mod(mod((b-a),L) * k/N + a,L)
-        int = int + h*H_interp(xk)*(θ_interp(xk)-θvapor_one)
+        int = int + h*H_interp_mid*(θ_interp(xk)-θvapor_one)
     end
     return int
 end
 
 function quad_trap_positive(H_interp,θ_interp,θvapor_one, a,b,L,N) 
     h = mod((b-a),L)/N
-    int = maximum([h * ( H_interp(a)*(θ_interp(a)-θvapor_one) + H_interp(b)*(θ_interp(b)-θvapor_one) ) / 2, 0.0])
+    mid = mod((a+b)/2,L)
+    H_interp_mid = H_interp(mid)
+
+    int = maximum([h * ( H_interp_mid*(θ_interp(a)-θvapor_one) + H_interp_mid*(θ_interp(b)-θvapor_one) ) / 2, 0.0])
     for k=1:N-1
         xk = mod(mod((b-a),L) * k/N + a,L)
-        int = int + maximum([h*H_interp(xk)*(θ_interp(xk)-θvapor_one),0.0])
+        int = int + maximum([h*H_interp_mid*(θ_interp(xk)-θvapor_one),0.0])
     end
     return int
 end
