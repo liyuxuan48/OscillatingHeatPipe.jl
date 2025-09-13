@@ -132,7 +132,7 @@ end
                                                     ηplus=0.6,ηminus=0,
                                                     nucleatenum=250,
                                                     L_newbubble=6e-3,
-                                                    ch_ratio=0.46,
+                                                    ch_ratio=0.42,
                                                     σcharge=0.01]) -> PHPSystem
 
 Constructor for the `PHPSystem` type, to initialize an OHP system.
