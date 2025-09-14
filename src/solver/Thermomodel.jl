@@ -462,8 +462,9 @@ function sys_to_Harray(p::PHPSystem)
 end
 
 function quad_trap(H_interp,θ_interp,θvapor_one, a,b,L,N) 
-    h = mod((b-a),L)/N
-    mid = mod((a+b)/2,L)
+    L_film_integral = mod((b-a),L)
+    h = L_film_integral/N
+    mid = mod(a+L_film_integral/2,L)
     H_interp_mid = H_interp(mid)
 
     int = h * ( H_interp_mid*(θ_interp(a)-θvapor_one) + H_interp_mid*(θ_interp(b)-θvapor_one) ) / 2
@@ -475,8 +476,9 @@ function quad_trap(H_interp,θ_interp,θvapor_one, a,b,L,N)
 end
 
 function quad_trap_positive(H_interp,θ_interp,θvapor_one, a,b,L,N) 
-    h = mod((b-a),L)/N
-    mid = mod((a+b)/2,L)
+    L_film_integral = mod((b-a),L)
+    h = L_film_integral/N
+    mid = mod(a+L_film_integral/2,L)
     H_interp_mid = H_interp(mid)
 
     int = maximum([h * ( H_interp_mid*(θ_interp(a)-θvapor_one) + H_interp_mid*(θ_interp(b)-θvapor_one) ) / 2, 0.0])
