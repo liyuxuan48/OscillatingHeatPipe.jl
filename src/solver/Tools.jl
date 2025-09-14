@@ -2,7 +2,7 @@ export getgvec,getgh,delta, # get actrual heightg of the tube
 XptoLvaporplug,XptoLliquidslug,getXpvapor, # transfer Xp to the length of vapors, length of liquids, and Xp for vapor.
 # ifamong,constructXarrays,
 duliquidθtovec,duwallθtovec,liquidθtovec,wallθtovec, # transfer temperature field to state vector for liquid and wall.
-Hfilm,getδarea,getδFromδarea,getMvapor,getMfilm,getMliquid,getVolumevapor,
+Hfilm,getδarea,getδFromδarea,getMvapor,getMfilm,getMliquid,getMtotal,getchargeratio,getVolumevapor,
 getCa,filmδcorr,getAdeposit,f_churchill,Catoδ,RntoΔT,systoM
 
 function getgvec(g0::T,g_angle::T=3/2*π) where {T<:Real}
@@ -364,6 +364,29 @@ Given cross-sectional tube area `Ac`, diameter `d`, and film cross-sectional
 area `δarea`, return the film thickness. 
 """
 getδFromδarea(Ac,d,δarea) = sqrt(δarea/Ac) * d/2
+
+"""
+    getMtotal(sys::PHPSystem) -> Scalar
+
+Return the masses of all of the vapor,liquid, and film regions
+"""
+function getMtotal(sys)
+    return sum(getMvapor(sys)) + sum(getMliquid(sys)) + sum(sum(getMfilm(sys)))
+end
+
+"""
+    getchargeratio(sys::PHPSystem) -> Scalar
+
+Return the chargeratio considering all of the vapor,liquid, and film regions
+"""
+function getchargeratio(sys)
+    Mtotal = getMtotal(sys)
+    @unpack L,Ac = sys.tube # get the tube parameters
+    @unpack ρₗ = sys.liquid # get the liquid density
+    Vtotal = L * Ac # total volume of the tube
+    Mliquidfull = ρₗ * Vtotal # mass of the tube if it is full of liquid
+    return Mtotal / Mliquidfull
+end
  
 """
     getMvapor(sys::PHPSystem) -> Vector

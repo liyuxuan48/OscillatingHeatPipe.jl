@@ -36,8 +36,8 @@ docdir = "../docs/src/manual"
 litdir = "./literate"
 
 if GROUP == "All" || GROUP == "Auxiliary"
-  include("datastructures.jl")
-  #include("pointforce.jl")
+    include("thermomodel.jl")
+    include("datastructures.jl")
 end
 
 if GROUP == "All" || GROUP == "Literate"

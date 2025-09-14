@@ -26,7 +26,7 @@ plate_d = 1.5e-3; # effective d [m] (The thickness of an ideal uniform thickness
 
 Tref = 291.2 # reference temperature [K]
 
-power = 70 # [W], total power
+power = 40 # [W], total power
 Lheater_x = 50e-3 # [m], length of heater along x axis 
 Lheater_y = 50e-3 # [m], length of heater along y axis
 areaheater_area = Lheater_x * Lheater_y # [m^2] total area
@@ -200,7 +200,7 @@ forcing_dict = Dict("heating models" => [heater1,cond1,ohp_linesource])
 
 #  ### Set time step
 # We first set the time step size (in seconds), and a function that will supply this time step.
-tstep = 1e-3 
+tstep = 4e-4 
 timestep_fixed(u,sys) = tstep
 
 # ### Create heat conduction system

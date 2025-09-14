@@ -4,7 +4,7 @@ using Statistics
 
     L, Lmin, ϕ0 = 4.0 + rand(), 0.001, 0.6 + 0.1*rand()
     for closedornot in [true,false]
-        X, dXdt, realratio = randomXp(L,Lmin,closedornot;chargeratio=ϕ0)
+        X, dXdt, liquid_realratio = randomXp(L,Lmin,closedornot;chargeratio=ϕ0)
 
         # if this is a closed case, then shift it so that the last
         # slug crosses the line. Ensures more robust testing
@@ -19,7 +19,7 @@ using Statistics
 
         ϕ = sum(lslug)/L
         @test abs(ϕ - ϕ0) < 0.1
-        @test ϕ ≈ realratio
+        @test ϕ ≈ liquid_realratio
 
         Xvapor = OscillatingHeatPipe.getXpvapor(X,closedornot)
         lvap = mod.(map(u -> u[2],Xvapor) - map(u -> u[1],Xvapor),L)

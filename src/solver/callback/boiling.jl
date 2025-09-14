@@ -94,6 +94,8 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
     Nvapor = length(P)
     loop_plus_index = [2:Nvapor;1]
     loop_plus_index_new = [3:Nvapor+1;1:2]
+    loop_minus_index = [Nvapor;1:Nvapor-1]
+    loop_minus_index_new = [Nvapor+1;1:Nvapor]
 
     Lfilm_start_new = insert!(Lfilm_start,index+1,Linsert/8)
     Lfilm_end_new = insert!(Lfilm_end,index+1,Linsert/8)
@@ -130,43 +132,103 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
     Lliquidslug = XptoLliquidslug(Xpnew,sys.tube.L)
 
 
-
     maxindex = 0;
-
+    maxvalue_type = 0;
+    # L_adjust < 0 # means we need to shrink the vapor part, I sill first try to shrink the pure vapor part, then the film part.
     if L_adjust < 0
-        L_newbubble = sysnew.wall.L_newbubble
-        L_adjust = (-L_adjust > L_newbubble) ? -L_newbubble : L_adjust
 
-        maxvalueindex = findmax(Lpurevapor)
-        maxvalue = maxvalueindex[1]
-        maxindex = maxvalueindex[2]
+        # This part is to limit the shrinking length, so that it will not shrink too much and look unphysical for one boiling event.
+        L_adjust_max = DEFAULT_L_ADJUST_MAX_FACTOR*sysnew.wall.L_newbubble
+        L_adjust = (-L_adjust > L_adjust_max) ? -L_adjust_max : L_adjust
 
-        if maxvalue > L_adjust
+        # This part try to find the maximum length of the pure vapor, and try to shrink it first.
+        Lpurevapor_maxvalueindex = findmax(Lpurevapor)
+        Lpurevapor_maxvalue = Lpurevapor_maxvalueindex[1]
+        Lpurevapor_maxindex = Lpurevapor_maxvalueindex[2]
+
+        # If the longest pure vapor part is long enough we will shrink it first.
+        if Lpurevapor_maxvalue > -L_adjust
+            maxvalue = Lpurevapor_maxvalue
+            maxindex = Lpurevapor_maxindex
+            maxvalue_type = 3 # 1: Lfilm_start, 2: Lfilm_end , 3: Lpurevapor
+
             sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust,sysnew.liquid.Xp[maxindex][2]),L)
-            # println(L_adjust, "-")
-        else 
-            maxindex = 0
-            println("boiling error!")
+        # If the longest pure vapor part is not long enough we will shrink the longest liquid film part.   
+        else
+            # find the index of the longest total liquid film part, then find the side of the longest liquid film part, then shrink it.
+            maxindex = findmax(Lfilm_start_new .+ Lfilm_end_new)[2]
+
+            Lfilm_maxvalueindex = findmax([Lfilm_start_new[maxindex],Lfilm_end_new[maxindex]])
+            maxvalue = Lfilm_maxvalueindex[1]
+            maxvalue_type = Lfilm_maxvalueindex[2] # find the section with largest length for future shrinking, 1: Lfilm_start, 2: Lfilm_end, 3: Lpurevapor
+
+            if maxvalue_type == 1
+                Afilm = getδarea(Ac,d,δstart_new[maxindex])
+                factor_adjust = Ac/(Ac-Afilm)
+
+                if maxvalue > -L_adjust*factor_adjust
+
+                sysnew.vapor.Lfilm_start[maxindex] = sysnew.vapor.Lfilm_start[maxindex] + L_adjust*factor_adjust
+                sysnew.liquid.Xp[loop_minus_index_new[maxindex]] = mod.((sysnew.liquid.Xp[loop_minus_index_new[maxindex]][1],sysnew.liquid.Xp[loop_minus_index_new[maxindex]][2]-L_adjust*factor_adjust),L) 
+
+                else 
+                    println("L_adjust:",L_adjust)
+                    println("maxvalue:",maxvalue)
+                    println("maxvalue_type:",maxvalue_type)
+                    println("factor_adjust:",factor_adjust)
+                    println("case1: mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass conservation may be off so check it!")
+                    throw("boiling function cannot shrink or expand a liquid slug")
+                end
+
+            elseif maxvalue_type == 2
+                Afilm = getδarea(Ac,d,δend_new[maxindex])
+                factor_adjust = Ac/(Ac-Afilm)
+
+                if maxvalue > -L_adjust*factor_adjust
+
+                sysnew.vapor.Lfilm_end[maxindex] = sysnew.vapor.Lfilm_end[maxindex] + L_adjust*factor_adjust
+                sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust*factor_adjust,sysnew.liquid.Xp[maxindex][2]),L)   
+   
+                else 
+                    println("L_adjust:",L_adjust)
+                    println("maxvalue:",maxvalue)
+                    println("maxvalue_type:",maxvalue_type)
+                    println("factor_adjust:",factor_adjust)
+                    println("case2: mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass conservation may be off so check it!")
+                    throw("boiling function cannot shrink or expand a liquid slug")
+                end
+            else
+                throw("error in liquid merging, maxvalue_type is not 1,2,3")
+            end
         end
+
+
+        # L_adjust > 0 # means we need to increase the vapor part, I will always increase the pure vapor part.
     else
         # L_newbubble = sysnew.wall.L_newbubble
         # L_adjust = (L_adjust > L_newbubble) ? L_newbubble : L_adjust
 
-        maxvalueindex = findmax(Lliquidslug)
-        maxvalue = maxvalueindex[1]
-        maxindex = maxvalueindex[2]
+        Lliquid_maxvalueindex = findmax(Lliquidslug)
+        maxvalue = Lliquid_maxvalueindex[1]
+        maxindex = Lliquid_maxvalueindex[2]
+        maxvalue_type = 1 # when vapor part needs to increase length, we only increase the Lpurevapor, 1: Lpurevapor, 2: Lfilm_start, 3: Lfilm_end
 
         if maxvalue > L_adjust
             sysnew.liquid.Xp[maxindex] = mod.((sysnew.liquid.Xp[maxindex][1]+L_adjust,sysnew.liquid.Xp[maxindex][2]),L)
         else 
-            maxindex = 0
-            println("boiling error!")
+            # maxindex = 0
+            println("L_adjust:",L_adjust)
+            println("maxvalue:",maxvalue)
+            println("maxvalue_type:",maxvalue_type)
+            println("factor_adjust:",factor_adjust)
+            println("case3: mass conservation enforcement failed in this boiling event! if this happens ocassionally, it is fine, but if it happens frequently, your mass conservation may be off so check it!")
+            throw("boiling function cannot shrink or expand a liquid slug")
         end
     end
 
     # up to now we got the correct Xpnew, next step is to get Xarraysnew, the splitted Xarrays.
 
-    Xarraysnew,θarraysnew = getnewXθarrays(index,sysnew.liquid.Xp,Xarrays,θarrays,L,maxindex)
+    Xarraysnew,θarraysnew = getnewXθarrays(index,sysnew.liquid.Xp,Xarrays,θarrays,L,maxindex,maxvalue_type)
     # θarraysnew = getnewθarrays(index,Xp,sysnew.liquid.Xp,Xarrays,θarrays,L,closedornot)
 
     sysnew.liquid.Xarrays = Xarraysnew
@@ -177,12 +239,13 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
     sysnew.mapping = Mapping(θ_interp_walltoliquid, curv_interp_walltoliquid, θ_interp_liquidtowall, H_interp_liquidtowall, P_interp_liquidtowall,heightg_interp)
     # sysnew.mapping = Mapping(θ_interp_walltoliquid, θ_interp_liquidtowall, H_interp_liquidtowall, P_interp_liquidtowall)
 
-    # println(Pnew[index-2:index+5])
-
 return sysnew
 end
 
-function getnewXθarrays(index,Xpnew,Xarrays_old,θarrays_old,L,maxindex)
+function getnewXθarrays(index,Xpnew,Xarrays_old,θarrays_old,L,maxindex,maxvalue_type)
+    Nvaporplug = length(Xpnew)
+    maxindex_minus = (maxindex != 1) ? maxindex-1 : Nvaporplug
+
     Nold= length(Xarrays_old[index])
 
     Xarraysnew = deepcopy(Xarrays_old)
@@ -212,7 +275,13 @@ function getnewXθarrays(index,Xpnew,Xarrays_old,θarrays_old,L,maxindex)
     insert!(θarraysnew, index+1,θarraysnewright)
 
     if maxindex != 0
-        Xarraysnew[maxindex] = constructoneXarray(Xpnew[maxindex],length(Xarraysnew[maxindex]),L)
+        if maxvalue_type == 2 || maxvalue_type == 3
+            Xarraysnew[maxindex] = constructoneXarray(Xpnew[maxindex],length(Xarraysnew[maxindex]),L)
+        elseif maxvalue_type == 1
+            Xarraysnew[maxindex_minus] = constructoneXarray(Xpnew[maxindex_minus],length(Xarraysnew[maxindex_minus]),L)
+        else 
+            println("error in liquid merging, maxvalue_type is not 1,2,3")
+        end
     end
 
     Xarraysnew,θarraysnew

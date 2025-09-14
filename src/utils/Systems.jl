@@ -39,7 +39,7 @@ Liquid is a struct containing liquid properties at a ref temperature
     μₗ::Float64                              liquid dynamic viscosity
     σ::Float64                              liquid surface tension
     Xp::Array{Tuple{Float64,Float64},1}     interface locations for each liquid slug
-    dXdt::Array{Tuple{Float64,Float64},1}   interface velocity for each liquid slug
+    dXdt::Array{Tuple{Float64,Float64},1}   bulk velocity for each liquid slug
     Xarrays::Array{Array{Float64,1},1}      finite difference location points within each liquid slug
     θarrays::Array{Array{Float64,1},1}      finite difference temperature points within each liquid slug
 """
