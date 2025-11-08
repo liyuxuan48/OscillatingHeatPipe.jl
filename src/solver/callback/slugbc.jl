@@ -5,7 +5,7 @@ function slugbc_condition(u,t,integrator)
 end
 
 function slugbc_affect!(integrator)
-    sys = getcurrentsys!(integrator.u,integrator.p);
+    sys = getcurrentsys_nowall!(integrator.u,integrator.p);
     unew = deepcopy(integrator.u)
 
     θarrays = sys.liquid.θarrays
