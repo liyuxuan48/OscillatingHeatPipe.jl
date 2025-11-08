@@ -2,7 +2,7 @@ export vaporMergingAffect!,vaporMergingCondition,vaporMerging
 
 function vaporMergingAffect!(integrator)
 
-    p = deepcopy(getcurrentsys!(integrator.u,integrator.p));
+    p = deepcopy(getcurrentsys_nowall!(integrator.u,integrator.p));
     δv = p.wall.L_newbubble
 
     L = p.tube.L;
@@ -39,7 +39,7 @@ end
 
 function vaporMergingCondition(u,t,integrator)     # only for closed loop tube
 
-    sys = getcurrentsys!(integrator.u,integrator.p);
+    sys = getcurrentsys_nowall!(integrator.u,integrator.p);
     δv = 2*sys.wall.L_newbubble
     merge_flags = getVaporMergeFlags(δv,sys)
 
