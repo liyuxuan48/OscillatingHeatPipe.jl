@@ -557,7 +557,7 @@ It uses an adjustment factor that can be tuned empirically.
 """
 function Catoδ(d,Ca;adjust_factor=1,δmin=2e-6,δmax=1e-4)
 
-    δ = Ca .^ (2/3) ./ (1 .+ Ca .^ (2/3)) .* d ./ 2 .* adjust_factor
+    δ = 1.34 .* Ca .^ (2/3) ./ (1 .+ 3.35 .* Ca .^ (2/3)) .* d ./ 2 .* adjust_factor
     if (δ < δmin)
         return δmin
     elseif (δ > δmax)
