@@ -83,7 +83,7 @@ end
 """
 
 @with_kw mutable struct Vapor
-    ad_fac::Float64                 = 1.3
+    ad_fac::Float64                 = 1.1
     Hᵥ::Float64                     = 0.0
     k::Float64
     δmin::Float64                   = 2e-6
@@ -111,7 +111,7 @@ end
     power::Float64
     boil_interval::Float64     = 1.0
     Rn::Float64                = 3e-6
-    L_newbubble::Float64       = 4e-3
+    L_newbubble::Float64
     Xstations::Array{Float64,1}
     boiltime_stations::Array{Float64,1}
     Xarray::Array{Float64,1}
