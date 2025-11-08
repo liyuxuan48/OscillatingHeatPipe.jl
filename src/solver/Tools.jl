@@ -540,8 +540,8 @@ end
 
 Return the Darcy friction factor, based on the Churchill correlation.
 """
-function f_churchill(Re,ϵ=0.001)
-    Θ1 = (-2.457*log((7/Re)^(0.9)  +  0.27 * ϵ))^16
+function f_churchill(Re,eps_rel=0.001)
+    Θ1 = (-2.457*log((7/Re)^(0.9)  +  0.27 * eps_rel))^16
     Θ2 = (37530/Re)^16
     f=8*((8/Re)^12+(1/(Θ1+Θ2)^1.5))^(1/12)
     
