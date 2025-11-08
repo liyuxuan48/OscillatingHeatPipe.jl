@@ -3,7 +3,7 @@ XptoLvaporplug,XptoLliquidslug,getXpvapor, # transfer Xp to the length of vapors
 # ifamong,constructXarrays,
 duliquidθtovec,duwallθtovec,liquidθtovec,wallθtovec, # transfer temperature field to state vector for liquid and wall.
 Hfilm,getδarea,getδFromδarea,getMvapor,getMfilm,getMliquid,getMtotal,getchargeratio,getVolumevapor,
-getCa,filmδcorr,getAdeposit,f_churchill,Catoδ,RntoΔT,systoM
+getCa,getAdeposit,f_churchill,Catoδ,RntoΔT,systoM
 
 function getgvec(g0::T,g_angle::T=3/2*π) where {T<:Real}
     g = g0*[cos(g_angle),sin(g_angle)]
@@ -475,15 +475,6 @@ function getCa(μ,σ,velocity)
     Ca = abs.(μ.*velocity./σ)
 end
 
-"""
-    filmδcorr(Ca,d)
-
-Return the film thickness of deposited film, based on Aussillous and Quere (2000),
-using the capillary number and diameter.
-"""
-function filmδcorr(Ca,d)
-    filmδ = d .* 0.67.*Ca.^(2/3)./(1 .+ 3.35.*Ca.^(2/3))
-end
 
 """
     getAdeposit(sys,δdeposit) -> Vector{Tuple}
