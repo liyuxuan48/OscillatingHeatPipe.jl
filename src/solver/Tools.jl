@@ -569,21 +569,21 @@ end
 
 
 """
-    RntoΔT(Rn,Tref,fluid_type,d,TtoP) -> Vector
+    RntoΔT(Rn,Tavg,fluid_type,d,TtoP) -> Vector
 
 Given the nucleation radius `Rn`, the fluid type `fluid_type` and reference
-temperature `Tref`, the channel diameter `d`, and the temperature-to-pressure
+temperature `Tavg`, the channel diameter `d`, and the temperature-to-pressure
 relation `TtoP`, return the superheat threshold temperature for boiling.
 """
-function RntoΔT(Rn,Tref,fluid_type,d,TtoP)
-    p_fluid = SaturationFluidProperty(fluid_type,Tref);
+function RntoΔT(Rn,Tavg,fluid_type,d,TtoP)
+    p_fluid = SaturationFluidProperty(fluid_type,Tavg);
 
     Rkg = p_fluid.R/p_fluid.M
     Rin = d/2
-    P = TtoP(Tref)
+    P = TtoP(Tavg)
 
-    y = Rkg .* Tref ./ (p_fluid.hᵥ-p_fluid.hₗ) .* log.(1 .+ 2 .* p_fluid.σ ./ P .* (1 ./ Rn .- 1/(2Rin)))
-    ΔTref = Tref .* (1 ./ (1 .- y) .- 1)
+    y = Rkg .* Tavg ./ (p_fluid.hᵥ-p_fluid.hₗ) .* log.(1 .+ 2 .* p_fluid.σ ./ P .* (1 ./ Rn .- 1/(2Rin)))
+    ΔTavg = Tavg .* (1 ./ (1 .- y) .- 1)
 end
 
 """
