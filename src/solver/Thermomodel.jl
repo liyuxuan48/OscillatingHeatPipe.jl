@@ -396,7 +396,7 @@ function liquidmodel(p::PHPSystem)
     for i in eachindex(θarrays)
         
         xs = Xarrays[i];
-        dx = mod(xs[end] - xs[1], L) / length(xs)
+        dx = mod(xs[end] - xs[1], L) / (length(xs)-1) ## two nodes are at the boundary so need to minus 1 for distance
 
         fx = map(θ_interp_walltoliquid, xs) - θarrays[i]
         du[i] = αₗ .* laplacian(θarrays[i]) ./ dx ./ dx + Hₗ .* fx .* H_rhs
