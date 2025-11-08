@@ -2,7 +2,7 @@ export merging_affect!,merging_condition,nucleateboiling,merging
 
 function merging_affect!(integrator)
 
-    p = getcurrentsys(integrator.u,integrator.p);
+    p = getcurrentsys_nowall(integrator.u,integrator.p);
     δv = DEFAULT_MERGE_FRAC*p.wall.L_newbubble
 
     merge_flags = getmerge_flags(δv,p)
@@ -37,7 +37,7 @@ end
 
 function merging_condition(u,t,integrator)     # only for closed loop tube
 
-    p = getcurrentsys!(integrator.u,integrator.p);
+    p = getcurrentsys_nowall!(integrator.u,integrator.p);
     # δv = p.tube.d > (integrator.dt*maximum(p.liquid.dXdt)[1]) ? p.tube.d : (integrator.dt*maximum(p.liquid.dXdt)[1])
     δv = DEFAULT_MERGE_FRAC*p.wall.L_newbubble
 
