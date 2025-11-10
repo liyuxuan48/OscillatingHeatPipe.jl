@@ -57,8 +57,8 @@ function dynamicsmodel(u::Array{Float64,1},p::PHPSystem)
     rhs_g = Ac*ρₗ ./ lhs
 
     # parameters for boolean flags
-    L0threshold_film = 0.15*L_newbubble
-    L0threshold_pure_vapor = 0.5*L_newbubble
+    L0threshold_film = DEFAULT_L0_FILM_FRAC*L_newbubble
+    L0threshold_pure_vapor = DEFAULT_L0_PURE_VAPOR_FRAC*L_newbubble
 
     if closedornot == false
         numofvaporbubble = numofliquidslug - 1
@@ -221,23 +221,39 @@ function film_dynamics(ρₗ, Ac,d,δstart,δend,dMdt_latent_start,dMdt_latent_e
     v_vapor_left_normal,dMdt_latent_end_positive,dMdt_latent_end_negative,v_vapor_right_normal,A_dδdt_left_vapor,A_dδdt_right_vapor,
     Lvaporplug,Lfilm_start,Lfilm_end,L0threshold_film,L0threshold_pure_vapor,v_momentum_vapor_start,v_momentum_vapor_end,Astart,Aend)
 
+    # F is the cross-sectional area of the film multiplied by liquid density
+    # C is the perimeter of liquid films interface multiplied by liquid density 
+    # for other cross-section other than square, this need to be modified
     F_start = ρₗ .* Ac .* 4 .* δstart .* (d .- δstart) ./ (d^2)
     C_start = ρₗ .* Ac .* 4 .* (d .- 2δstart) ./ (d^2)
 
     F_end = ρₗ .* Ac .* 4 .* δend .* (d .- δend) ./ (d^2)
     C_end = ρₗ .* Ac .* 4 .* (d .- 2δend) ./ (d^2)
 
+    # the dLdt under normal condition, without considering five different cases
+    # first get the mass flow rate for the phase change portion of dLdt, 
+    # then convert to the unit of dLdt by F, and then add the interface velocity
     dLdt_start_normal = -(dMdt_latent_start_positive .* Eratio_plus .+ dMdt_latent_start_negative .* Eratio_minus) ./ F_start .- v_vapor_left_normal
     dLdt_end_normal = -(dMdt_latent_end_positive .* Eratio_plus .+ dMdt_latent_end_negative .* Eratio_minus) ./ F_end .+ v_vapor_right_normal
 
     # get boolean flags for five cases
-    he_matrix_start,he_matrix_end = case_flags(Lvaporplug,Lfilm_start,Lfilm_end,L0threshold_film,L0threshold_pure_vapor,dLdt_start_normal,dLdt_end_normal)
+    he_matrix_start,he_matrix_end = case_flags(Lvaporplug,Lfilm_start,Lfilm_end,L0threshold_film,L0threshold_pure_vapor,dLdt_start_normal,dLdt_end_normal,v_vapor_left_normal,v_vapor_right_normal)
 
-    v_vapor_left_case5 = v_momentum_vapor_start .+ v_momentum_vapor_start .* Aend ./ (Ac .- Aend)
-    v_vapor_right_case5 = v_momentum_vapor_end .+ v_momentum_vapor_end .* Astart ./ (Ac .- Astart)
+    # println(he_matrix_start)
+    # println(he_matrix_end)
+    TESTING_SWTICH = 1
+    
+    # for case 2, L is very small and the L and δ are frozen to avoid code crash, so the vapor velocity needs to be slightly differ from bulk velocity
+    # to account for the mass flow rate caused by the 'frozen' liquid film (very short but still not zero) 's phase change
+    v_vapor_left_case2  = v_momentum_vapor_start .+ ((-dMdt_latent_start)  ./ (ρₗ .* Ac)) .* TESTING_SWTICH
+    v_vapor_right_case2 = v_momentum_vapor_end   .- ((-dMdt_latent_end)    ./ (ρₗ .* Ac)) .* TESTING_SWTICH
 
-    V_vapor_matrix_start = hcat(v_vapor_left_normal,v_momentum_vapor_start,v_vapor_left_normal,v_vapor_left_normal,v_vapor_left_case5)'
-    V_vapor_matrix_end   = hcat(v_vapor_right_normal,v_momentum_vapor_end,v_vapor_right_normal,v_vapor_right_normal,v_vapor_right_case5)'
+    # for case 5, the liquid interface is essentially eating the other side's liquid film, so need to account for the mass flow rate contributed by that liquid film
+    v_vapor_left_case5  = v_momentum_vapor_start .+ v_momentum_vapor_start .* Aend   ./ (Ac .- Aend)   .+ (v_vapor_left_case2  .- v_momentum_vapor_start) .* TESTING_SWTICH
+    v_vapor_right_case5 = v_momentum_vapor_end   .+ v_momentum_vapor_end   .* Astart ./ (Ac .- Astart) .+ (v_vapor_right_case2 .- v_momentum_vapor_end)   .* TESTING_SWTICH
+
+    V_vapor_matrix_start = hcat(v_vapor_left_normal,v_vapor_left_case2,v_vapor_left_normal,v_vapor_left_normal,v_vapor_left_case5)'
+    V_vapor_matrix_end   = hcat(v_vapor_right_normal,v_vapor_right_case2,v_vapor_right_normal,v_vapor_right_normal,v_vapor_right_case5)'
 
     v_vapor_start_final = sum(he_matrix_start .* V_vapor_matrix_start,dims=1)
     v_vapor_end_final = sum(he_matrix_end .* V_vapor_matrix_end,dims=1)
@@ -270,8 +286,10 @@ function film_dynamics(ρₗ, Ac,d,δstart,δend,dMdt_latent_start,dMdt_latent_e
     return dLdt_start,dLdt_end,dδdt_start,dδdt_end,v_vapor_start_final,v_vapor_end_final
 end
     
-function case_flags(Lvaporplug,Lfilm_start,Lfilm_end,L0threshold_film,L0threshold_pure_vapor,dLdt_start_normal,dLdt_end_normal)
+function case_flags(Lvaporplug,Lfilm_start,Lfilm_end,L0threshold_film,L0threshold_pure_vapor,dLdt_start_normal,dLdt_end_normal,v_vapor_left_normal,v_vapor_right_normal)
     # get boolean flags for five cases
+    he_evap_start_positive = Bool.(heaviside.(-dLdt_start_normal - v_vapor_left_normal))
+    he_evap_end_positive = Bool.(heaviside.(-dLdt_end_normal + v_vapor_right_normal))
     he_start_short = Bool.(heaviside.(-Lfilm_start .+ L0threshold_film))
     he_end_short = Bool.(heaviside.(-Lfilm_end .+ L0threshold_film))
     he_start_positive = Bool.(heaviside.(dLdt_start_normal))
@@ -282,7 +300,7 @@ function case_flags(Lvaporplug,Lfilm_start,Lfilm_end,L0threshold_film,L0threshol
     # zero Lfilm and negative dLdt case
     case2_flag_start = Bool.((1 .- he_meet) .* he_start_short .* (1 .- he_start_positive))
     # two ends meet and both nonzero case
-    case3_flag_start = Bool.(he_meet .* he_start_short .* he_start_positive .+ he_meet .* (1 .- he_start_short) .* (1 .- he_end_short))
+    case3_flag_start = Bool.(he_meet .* he_start_short .* he_start_positive .+ he_meet .* (1 .- he_start_short) .* (1 .- he_end_short)) .* (1 .- he_evap_start_positive) .* (1 .- he_evap_end_positive)
     # two ends meet and other side zero case
     case4_flag_start = Bool.(he_meet .* (1 .- he_start_short) .* he_end_short .* (1 .- he_end_positive))
     # two ends meet and this side zero case
@@ -293,7 +311,7 @@ function case_flags(Lvaporplug,Lfilm_start,Lfilm_end,L0threshold_film,L0threshol
     # zero Lfilm and negative dLdt case
     case2_flag_end = Bool.((1 .- he_meet) .* he_end_short .* (1 .- he_end_positive))
     # two ends meet and both nonzero case
-    case3_flag_end = Bool.(he_meet .* he_end_short .* he_end_positive .+ he_meet .* (1 .- he_end_short) .* (1 .- he_start_short))
+    case3_flag_end = Bool.(he_meet .* he_end_short .* he_end_positive .+ he_meet .* (1 .- he_end_short) .* (1 .- he_start_short))  .* (1 .- he_evap_start_positive) .* (1 .- he_evap_end_positive)
     # two ends meet and other side zero case
     case4_flag_end = Bool.(he_meet .* (1 .- he_end_short) .* he_start_short .* (1 .- he_start_positive))
     # two ends meet and this side zero case
