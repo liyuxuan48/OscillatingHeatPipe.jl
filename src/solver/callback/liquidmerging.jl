@@ -2,7 +2,7 @@ export merging_affect!,merging_condition,nucleateboiling,merging
 
 function merging_affect!(integrator)
 
-    p = getcurrentsys_nowall(integrator.u,integrator.p);
+    p = deepcopy(getcurrentsys_nowall!(integrator.u,integrator.p));
     δv = DEFAULT_LIQUID_MERGE_FRAC*p.wall.L_newbubble
 
     merge_flags = getmerge_flags(δv,p)
