@@ -119,13 +119,14 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
     sysnew.vapor.Lfilm_start = Lfilm_start_new
     sysnew.vapor.Lfilm_end = Lfilm_end_new
 
-    # Mvapor_old = sum(getMvapor(sys))
-    # Mfilm_old = sum(sum.(getMfilm(sys)))
+    # multuply a factor to adjust the length of vapor/liquid to conserve mass, accounting for the inserted vapor volume.
+    PtoD = sys.propconvert.PtoD
+    ρinsert = PtoD(Pinsert)
     Mvapor_new = sum(getMvapor(sysnew))
     Mfilm_new = sum(sum.(getMfilm(sysnew)))
     Mliquid_new = sum(getMliquid(sysnew))
     Mold = sysnew.cache.mass
-    L_adjust = (Mvapor_new + Mfilm_new + Mliquid_new - Mold)./ (ρₗ*Ac)
+    L_adjust = (Mvapor_new + Mfilm_new + Mliquid_new - Mold)./ (ρₗ*Ac) .* (1 +  ρinsert/ρₗ)
 
     Lvaporplug = XptoLvaporplug(sysnew.liquid.Xp,sysnew.tube.L,sysnew.tube.closedornot)
     Lpurevapor = Lvaporplug .- Lfilm_start_new .- Lfilm_end_new
