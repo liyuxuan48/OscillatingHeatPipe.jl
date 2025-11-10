@@ -475,6 +475,8 @@ end
     @test Mfilm_start ≈ M_film_start_analytical
     @test Mfilm_end ≈ M_film_end_analytical
 
+    @test getMtotal(sys_tube) ≈ sum(M_vapor_analytical) + sum(M_liquid_analytical) + sum(M_film_start_analytical) + sum(M_film_end_analytical)
+
 end
 
 # some threshold values need to be changed for other applications
