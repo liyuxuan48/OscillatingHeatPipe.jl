@@ -500,7 +500,7 @@ function quad_trap_positive(H_interp,θ_interp,θvapor_one, a,b,L,N)
     H_interp_mid = H_interp(mid)
 
     # int = maximum([h * ( H_interp_mid*(θ_interp(a)-θvapor_one) + H_interp_mid*(θ_interp(b)-θvapor_one) ) / 2, 0.0])
-    int = maximum([h * ( H_interp_mid*(θ_interp(a)-θvapor_one)/ 2, 0.0]) + maximum([h * ( H_interp_mid*(θ_interp(b)-θvapor_one) ) / 2, 0.0])
+    int = maximum([h * ( H_interp_mid*(θ_interp(a)-θvapor_one)/ 2), 0.0]) + maximum([h * ( H_interp_mid*(θ_interp(b)-θvapor_one)/ 2), 0.0])
     for k=1:N-1
         xk = mod(mod((b-a),L) * k/N + a,L)
         int = int + maximum([h*H_interp_mid*(θ_interp(xk)-θvapor_one),0.0])
