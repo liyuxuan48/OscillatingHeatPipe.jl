@@ -2,7 +2,10 @@ export getcurrentsys_nowall!,getcurrentsys_nowall,getcurrentsys,getRTD,getconfig
 translateOHPdata,getTcurve,oneDtwoDtransform,get_boil_matrix,get1DTandP
 
 """
-    give a new u and an old system, return a new system sysnew, not updating wall temperature.
+    give a new u and an old system, return a new system sysnew, not updating wall temperature, 
+    but update interpolations based on the current wall temperature in sys0.
+
+    So this function is basically updating the system based on the most current u and wall temperature in sys0.
 """
 
 function getcurrentsys_nowall!(u,sys0)
@@ -65,18 +68,14 @@ function getcurrentsys_nowall!(u,sys0)
     return sysnew
 end
 
-function getcurrentsys_nowall(u,sys0)
-    systemp = deepcopy(sys0)
-    getcurrentsys_nowall!(u,systemp)
-end
-
 function getcurrentsys(SimuResult::SimulationResult,i::Int64)
     u = SimuResult.tube_hist_u[i]
     sys0 = SimuResult.integrator_tube.p
     θwall_plate = SimuResult.tube_hist_θwall[i]
 
-    sys_tube = getcurrentsys_nowall(u,sys0)
-    sys_tube.wall.θarray = θwall_plate
+    systemp = deepcopy(sys0)
+    systemp.wall.θarray = θwall_plate
+    sys_tube = getcurrentsys_nowall!(u,systemp)
 
     sys_tube
 end
