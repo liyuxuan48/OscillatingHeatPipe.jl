@@ -387,6 +387,20 @@ function getchargeratio(sys)
     Mliquidfull = ρₗ * Vtotal # mass of the tube if it is full of liquid
     return Mtotal / Mliquidfull
 end
+
+"""
+    getMtotal(sys::PHPSystem)
+
+Given tube system `sys`, return the total mass of the all regions.
+"""
+function getMtotal(sys0::PHPSystem)
+
+    Mvapor = sum(getMvapor(sys0))
+    Mliquid = sum(getMliquid(sys0))
+    Mfilm = sum(sum.(getMfilm(sys0)))
+
+    return Mvapor + Mliquid + Mfilm
+end
  
 """
     getMvapor(sys::PHPSystem) -> Vector
