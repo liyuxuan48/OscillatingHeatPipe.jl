@@ -107,10 +107,12 @@ end
 
 function exchangepinfo!(integrator_tube::ODEIntegrator,integrator_plate::ODEIntegrator)
 
+    # update interpolated wall temperature to tube system
+    # currentsys.wall.θarray = temperature_linesource(integrator_plate)
+    integrator_tube.p.wall.θarray = temperature_linesource(integrator_plate)
     # update the system of integrator_tube.p from the latest integrator_tube.u, without updating wall temperature
     currentsys = getcurrentsys_nowall!(integrator_tube.u,integrator_tube.p)
-    # update interpolated wall temperature to tube system
-    currentsys.wall.θarray = temperature_linesource(integrator_plate)
+
 
     # update heat flux to plate system
     qtmp = sys_to_heatflux(currentsys)
