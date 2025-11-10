@@ -100,7 +100,7 @@ function merging(p,i)
         Linsert = (Mvapor[i] + Mfilm[1][i] + Mfilm[2][i] - 0.5 .* Ac .* Lvaporplug[i] .* (PtoD(p.vapor.P[right_index]))) ./ (ρₗ .* Ac .- 0.5 .* Ac .* (PtoD(p.vapor.P[right_index])))
         Xpnewone = (p.liquid.Xp[liquid_left_i][1], p.liquid.Xp[liquid_right_i][end] - Lvaporplug[i] + Linsert)
         dXdtnewonevalue = 0.0
-    elseif i == numofvaporbubble
+    elseif closedornot == false && i == numofvaporbubble
         Linsert = (Mvapor[i] + Mfilm[1][i] + Mfilm[2][i] - 0.5 .* Ac .* Lvaporplug[i] .* (PtoD(p.vapor.P[left_index]))) ./ (ρₗ .* Ac .- 0.5 .* Ac .* (PtoD(p.vapor.P[left_index])))
         Xpnewone = (p.liquid.Xp[liquid_left_i][1]+Lvaporplug[i] - Linsert, p.liquid.Xp[liquid_right_i][end])
         dXdtnewonevalue = 0.0
