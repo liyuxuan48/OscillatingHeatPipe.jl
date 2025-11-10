@@ -269,16 +269,16 @@ end
     dMdt_latent_start_negative = dMdt_latent_start .- dMdt_latent_start_positive
     dMdt_latent_end_negative = dMdt_latent_end .- dMdt_latent_end_positive
 
-    @test all(isapprox.(dMdt_latent_start,dMdt_latent_start_analytical,rtol=4e-3)) 
-    @test all(isapprox.(dMdt_latent_end,dMdt_latent_end_analytical,rtol=4e-3)) 
-    @test all(isapprox.(dMdt_latent_start_positive,dMdt_latent_start_positive_analytical,atol=1e-12,rtol=4e-3))
-    @test all(isapprox.(dMdt_latent_end_positive,dMdt_latent_end_positive_analytical,atol=1e-12,rtol=4e-3))
-    @test all(isapprox.(dMdt_latent_start_negative,dMdt_latent_start_negative_analytical,atol=1e-12,rtol=4e-3))
-    @test all(isapprox.(dMdt_latent_end_negative,dMdt_latent_end_negative_analytical,atol=1e-12,rtol=4e-3))
+    @test all(isapprox.(dMdt_latent_start,dMdt_latent_start_analytical,atol=1e-12)) 
+    @test all(isapprox.(dMdt_latent_end,dMdt_latent_end_analytical,atol=1e-12)) 
+    @test all(isapprox.(dMdt_latent_start_positive,dMdt_latent_start_positive_analytical,atol=1e-12))
+    @test all(isapprox.(dMdt_latent_end_positive,dMdt_latent_end_positive_analytical,atol=1e-12))
+    @test all(isapprox.(dMdt_latent_start_negative,dMdt_latent_start_negative_analytical,atol=1e-12))
+    @test all(isapprox.(dMdt_latent_end_negative,dMdt_latent_end_negative_analytical,atol=1e-12))
 
     dMdt_latent = dMdt_latent_start .+ dMdt_latent_end
 
-    @test all(isapprox.(uu_test2[4*numofslugs+1:5*numofslugs],dMdt_latent,rtol=4e-3)) #dMdt
+    @test all(isapprox.(uu_test2[4*numofslugs+1:5*numofslugs],dMdt_latent,atol=1e-12)) #dMdt
 
     F_start = ρₗ .* getδarea.(Ac,d,δstart)
     F_end = ρₗ .* getδarea.(Ac,d,δend)
@@ -465,7 +465,7 @@ end
 
     dMdt_latent = dMdt_latent_start .+ dMdt_latent_end
 
-    @test all(isapprox.(uu_test2[4*numofslugs+1:5*numofslugs],dMdt_latent,rtol=4e-3)) #dMdt
+    @test all(isapprox.(uu_test2[4*numofslugs+1:5*numofslugs],dMdt_latent,atol=1e-12)) #dMdt
 
     F_start = ρₗ .* getδarea.(Ac,d,δstart)
     F_end = ρₗ .* getδarea.(Ac,d,δend)
@@ -622,8 +622,6 @@ end
         Mfilm_new = sum(sum.(getMfilm(p_new)))
         Mliquid_new = sum(getMliquid(p_new))
         Mnew = Mvapor_new + Mfilm_new + Mliquid_new
-
-        println(Mnew/Mold)
 
         @test isapprox.(Mold,Mnew,atol=2e-10)
     end
