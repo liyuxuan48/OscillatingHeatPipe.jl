@@ -125,91 +125,116 @@ prob = NeumannHeatConductionProblem(g,body,scaling=GridScaling,
 
 sys_plate = construct_system(prob)
 
-# test 1, 30 slugs, no heat transfer, given an initial velocity
+# test 1, 30 slugs, no heat transfer, given an initial velocity, with and without gravity
 @testset "dynamicsmodel test1" begin
     numofslugs = 30
-    sys_tube = initialize_ohpsys(sys_plate,p_fluid,power,slugnum=numofslugs,ηplus=rand())
-    Vint = 1.0 + rand()
-    sys_tube.liquid.dXdt = [zero.(X) .+ Vint for X in sys_tube.liquid.dXdt]# initial velocity of the slugs
-    sys_tube.vapor.δstart .= zeros(numofslugs) .+ 1e-5 # initial velocity of the slugs
 
-    u_tube = newstate(sys_tube) # initialize OHP tube
-    # integrator_tube = init(u_tube,tspan,sys_tube); # construct integrator_tube
+    for gi in [[0.0,0.0],[-9.8,0.0]]
+  
+        sys_tube = initialize_ohpsys(sys_plate,p_fluid,power,g=gi,slugnum=numofslugs,ηplus=rand())
+        Vint = 1.0 + rand()
+        sys_tube.liquid.dXdt = [zero.(X) .+ Vint for X in sys_tube.liquid.dXdt]# initial velocity of the slugs
+        sys_tube.vapor.δstart .= zeros(numofslugs) .+ 1e-5 # initial velocity of the slugs
 
-    σ = sys_tube.liquid.σ
-    L = sys_tube.tube.L
-    ρₗ = sys_tube.liquid.ρₗ
-    μₗ = sys_tube.liquid.μₗ
-    ad_fac = sys_tube.vapor.ad_fac
-    d = sys_tube.tube.d
-    Ac = sys_tube.tube.Ac
-    peri = sys_tube.tube.peri
-    Xp = sys_tube.liquid.Xp
-    dXdt = sys_tube.liquid.dXdt
-    δend = sys_tube.vapor.δend
-    # characteristic bulk velocities for each liquid slug
-    V = [mean(elem) for elem in sys_tube.liquid.dXdt]
-    # get a characteristic Capilarry number based on the average velocities
-    Vavg = mean(abs.(V))
-    Ca = getCa.(μₗ,σ,Vavg)
+        u_tube = newstate(sys_tube) # initialize OHP tube
+        # integrator_tube = init(u_tube,tspan,sys_tube); # construct integrator_tube
 
-    δdep = Catoδ(d,Ca,adjust_factor=ad_fac)
+        σ = sys_tube.liquid.σ
+        L = sys_tube.tube.L
+        ρₗ = sys_tube.liquid.ρₗ
+        μₗ = sys_tube.liquid.μₗ
+        ad_fac = sys_tube.vapor.ad_fac
+        d = sys_tube.tube.d
+        Ac = sys_tube.tube.Ac
+        peri = sys_tube.tube.peri
+        Xp = sys_tube.liquid.Xp
+        dXdt = sys_tube.liquid.dXdt
+        δend = sys_tube.vapor.δend
+        # characteristic bulk velocities for each liquid slug
+        V = [mean(elem) for elem in sys_tube.liquid.dXdt]
+        # get a characteristic Capilarry number based on the average velocities
+        Vavg = mean(abs.(V))
+        Ca = getCa.(μₗ,σ,Vavg)
 
-    Lliquidslug = XptoLliquidslug(Xp,L)
+        δdep = Catoδ(d,Ca,adjust_factor=ad_fac)
 
-    Adeposit = getAdeposit(sys_tube,δdep)
-    Adeposit_left = [elem[1] for elem in Adeposit]
-    Adeposit_right = [elem[2] for elem in Adeposit]
-    
-# The first test is to check the case where there is no heat transfer and an initial velocity
-    uu_test1 = dynamicsmodel(u_tube[1:9*numofslugs],sys_tube)
+        Lliquidslug = XptoLliquidslug(Xp,L)
 
-    @test all(uu_test1[1:2:2*numofslugs-1] .≈ Ac ./ (Ac .- Adeposit_left) .*  V) # velocity should remain the same
-    @test all(uu_test1[2:2:2*numofslugs]   .≈ Ac ./ (Ac .- Adeposit_right) .*  V) # velocity should remain the same
+        Adeposit = getAdeposit(sys_tube,δdep)
+        Adeposit_left = [elem[1] for elem in Adeposit]
+        Adeposit_right = [elem[2] for elem in Adeposit]
+        
+    # The first test is to check the case where there is no heat transfer and an initial velocity
+        uu_test1 = dynamicsmodel(u_tube[1:9*numofslugs],sys_tube)
 
-    # get differential equation factors
-    lhs = ρₗ*Ac .* Lliquidslug
+        @test all(uu_test1[1:2:2*numofslugs-1] .≈ Ac ./ (Ac .- Adeposit_left) .*  V) # velocity should remain the same
+        @test all(uu_test1[2:2:2*numofslugs]   .≈ Ac ./ (Ac .- Adeposit_right) .*  V) # velocity should remain the same
 
-    # analytical solution for dXdt term (friction)
-    Re = ρₗ .* abs.(V) .* d ./ μₗ
-    f_coefficient = f_churchill.(Re)
-    dXdt_to_stress = -1/8 .* f_coefficient .* ρₗ .* V .* abs.(V)
-    rhs_dXdt = peri .* Lliquidslug .* dXdt_to_stress ./ lhs
+        # get differential equation factors
+        lhs = ρₗ*Ac .* Lliquidslug
 
-    # analytical solution for dLdt term (mass conservation)
-    dVdt_nodLdt = dXdt_to_stress*peri .* Lliquidslug ./ lhs # if dLdt = 0
-    dLdt = (Ac ./ (Ac .- Adeposit_right) - Ac ./ (Ac .- Adeposit_left)) .*  V
-    rhs_dLdt = -ρₗ .* Ac .* V .*  dLdt ./ lhs
-    
-    @test all(uu_test1[2*numofslugs+1:2:4*numofslugs-1] .≈ rhs_dXdt .+ rhs_dLdt)
+        # analytical solution for dXdt term (friction)
+        Re = ρₗ .* abs.(V) .* d ./ μₗ
+        f_coefficient = f_churchill.(Re)
+        dXdt_to_stress = -1/8 .* f_coefficient .* ρₗ .* V .* abs.(V)
+        rhs_dXdt = peri .* Lliquidslug .* dXdt_to_stress ./ lhs
 
-    @test all(uu_test1[2*numofslugs+2:2:4*numofslugs]   .== uu_test1[2*numofslugs+1:2:4*numofslugs-1])
+        # analytical solution for dLdt term (mass conservation)
+        dVdt_nodLdt = dXdt_to_stress*peri .* Lliquidslug ./ lhs # if dLdt = 0
+        dLdt = (Ac ./ (Ac .- Adeposit_right) - Ac ./ (Ac .- Adeposit_left)) .*  V
+        rhs_dLdt = -ρₗ .* Ac .* V .*  dLdt ./ lhs
 
-    @test all(isapprox.(uu_test1[4*numofslugs+1:5*numofslugs],0.0,atol=1e-12)) #dMdt = 0
+        # analytical solution for gravity term, gh is the gravitational energy per unit mass
+        heightg_interp = sys_tube.mapping.heightg_interp
+        Xp1 = [elem[1] for elem in Xp]
+        Xp2 = [elem[2] for elem in Xp]
+        heightg_Xp1 = heightg_interp(Xp1)
+        heightg_Xp2 = heightg_interp(Xp2)
+        Δgh = heightg_Xp2 .- heightg_Xp1
+        rhs_g_gh = -Δgh .* Ac*ρₗ ./ lhs
 
-    @test all(isapprox.(uu_test1[5*numofslugs+1:6*numofslugs],0.0,atol=1e-12)) #dδstart/dt = 0
+        if all(isapprox.(gi,0.0,atol=1e-12))
+            @test all(isapprox.(rhs_g_gh,0.0,atol=1e-12))
+        else
+            @test !all(isapprox.(rhs_g_gh,0.0,atol=1e-12))
+        end
+        # println(uu_test1[2*numofslugs+1:2:4*numofslugs-1])
 
-    F_end = ρₗ .* getδarea.(Ac,d,δend)
-    F2_end = ρₗ .* getδarea.(Ac,d,δdep)
+        
+        # println(rhs_dXdt)
+        # println(rhs_dLdt)
+        # println(rhs_g)
+        # println(uu_test1[2*numofslugs+1:2:4*numofslugs-1] ./ (rhs_dXdt .+ rhs_dLdt .+ rhs_g))
+        @test all(uu_test1[2*numofslugs+1:2:4*numofslugs-1] .≈ rhs_dXdt .+ rhs_dLdt .+ rhs_g_gh)
 
-    peri_end = peri .* (d .- 2δend)/d
-    C_end = ρₗ .* peri_end
-    Lfilm_end = sys_tube.vapor.Lfilm_end
+        @test all(uu_test1[2*numofslugs+2:2:4*numofslugs]   .== uu_test1[2*numofslugs+1:2:4*numofslugs-1])
 
-    @test all(uu_test1[6*numofslugs+1:7*numofslugs] .≈ (F2_end .- F_end) .* Ac ./ (Ac .- Adeposit_left) .*  V ./ C_end ./ Lfilm_end)
+        @test all(isapprox.(uu_test1[4*numofslugs+1:5*numofslugs],0.0,atol=1e-12)) #dMdt = 0
 
-    @test all(uu_test1[7*numofslugs+1:8*numofslugs] .≈ -uu_test1[2:2:2*numofslugs])
+        @test all(isapprox.(uu_test1[5*numofslugs+1:6*numofslugs],0.0,atol=1e-12)) #dδstart/dt = 0
 
-    @test all(uu_test1[8*numofslugs+1:9*numofslugs] .≈ uu_test1[1:2:2*numofslugs-1])
+        F_end = ρₗ .* getδarea.(Ac,d,δend)
+        F2_end = ρₗ .* getδarea.(Ac,d,δdep)
+
+        peri_end = peri .* (d .- 2δend)/d
+        C_end = ρₗ .* peri_end
+        Lfilm_end = sys_tube.vapor.Lfilm_end
+
+        @test all(uu_test1[6*numofslugs+1:7*numofslugs] .≈ (F2_end .- F_end) .* Ac ./ (Ac .- Adeposit_left) .*  V ./ C_end ./ Lfilm_end)
+
+        @test all(uu_test1[7*numofslugs+1:8*numofslugs] .≈ -uu_test1[2:2:2*numofslugs])
+
+        @test all(uu_test1[8*numofslugs+1:9*numofslugs] .≈ uu_test1[1:2:2*numofslugs-1])
 
 
-    # lastly, just to test if the Re is in laminar range, you get a stress value based on Poiseuille flow
-    V_laminar = 1e-1
-    Re_laminar = ρₗ .* abs.(V_laminar) .* d ./ μₗ
-    @test (Re_laminar < 2300.0)
-    f_coefficient_laminar = f_churchill.(Re_laminar)
-    dXdt_to_stress_laminar = -1/8 .* f_coefficient_laminar .* ρₗ .* V_laminar .* abs.(V_laminar)
-    @test isapprox(dXdt_to_stress_laminar, -8 * μₗ * V_laminar / d, atol=1e-12)
+        # lastly, just to test if the Re is in laminar range, you get a stress value based on Poiseuille flow
+        V_laminar = 1e-1
+        Re_laminar = ρₗ .* abs.(V_laminar) .* d ./ μₗ
+        @test (Re_laminar < 2300.0)
+        f_coefficient_laminar = f_churchill.(Re_laminar)
+        dXdt_to_stress_laminar = -1/8 .* f_coefficient_laminar .* ρₗ .* V_laminar .* abs.(V_laminar)
+        @test isapprox(dXdt_to_stress_laminar, -8 * μₗ * V_laminar / d, atol=1e-12)
+    end
                                                  
 end
 
