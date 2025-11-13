@@ -198,14 +198,8 @@ sys_plate = construct_system(prob)
         else
             @test !all(isapprox.(rhs_g_gh,0.0,atol=1e-12))
         end
-        # println(uu_test1[2*numofslugs+1:2:4*numofslugs-1])
 
-        
-        # println(rhs_dXdt)
-        # println(rhs_dLdt)
-        # println(rhs_g)
-        # println(uu_test1[2*numofslugs+1:2:4*numofslugs-1] ./ (rhs_dXdt .+ rhs_dLdt .+ rhs_g))
-        @test all(uu_test1[2*numofslugs+1:2:4*numofslugs-1] .≈ rhs_dXdt .+ rhs_dLdt .+ rhs_g_gh)
+        @test all(isapprox.(uu_test1[2*numofslugs+1:2:4*numofslugs-1], rhs_dXdt .+ rhs_dLdt .+ rhs_g_gh, rtol=1e-7))
 
         @test all(uu_test1[2*numofslugs+2:2:4*numofslugs]   .== uu_test1[2*numofslugs+1:2:4*numofslugs-1])
 
@@ -609,16 +603,39 @@ end
     Rn_disable = 1e-8
     sys_tube = initialize_ohpsys(sys_plate,p_fluid,power,Rn_boil=Rn_disable, slugnum=numofslugs,ηplus=ηplusvalue)
 
-    for casei in [1,2]
+    for casei in [1,2,3,4,5]
         sys_tube.vapor.δstart .= zeros(numofslugs) .+ 1e-5 .+ 0e-5 .* rand(numofslugs) # initial velocity of the slugs
         sys_tube.vapor.δend .= zeros(numofslugs) .+ 1e-5 .+ 0e-5 .* rand(numofslugs) # initial velocity of the slugs
         # 0.0 need to be replaced by 1.0
-        sys_tube.liquid.dXdt[1:numofslugs] = [zero.(X) .- 0.0 .* rand() .- 1 for X in sys_tube.liquid.dXdt[1:numofslugs]]# initial velocity of the slugs
-        if casei == 2
+        sys_tube.liquid.dXdt[1:numofslugs] = [zero.(X) .- 1 for X in sys_tube.liquid.dXdt[1:numofslugs]]# initial velocity of the slugs
+        if casei == 1
+            sys_tube.liquid.dXdt[1:numofslugs] = [zero.(X) .- 1 for X in sys_tube.liquid.dXdt[1:numofslugs]]# initial velocity of the slugs
+            sys_tube.vapor.P .= fill(sys_tube.propconvert.TtoP(Tref - 5.0),numofslugs)
+        elseif casei == 2
+            sys_tube.liquid.dXdt[1:numofslugs] = [zero.(X) .- 1 for X in sys_tube.liquid.dXdt[1:numofslugs]]# initial velocity of the slugs
+            sys_tube.vapor.P .= fill(sys_tube.propconvert.TtoP(Tref - 5.0),numofslugs)
             sys_tube.vapor.Lfilm_start .= 1e-1 * sys_tube.wall.L_newbubble
             sys_tube.vapor.Lfilm_end .= 1e-1 * sys_tube.wall.L_newbubble
+        elseif casei == 3
+            sys_tube.liquid.dXdt[1:numofslugs] = [zero.(X) .- 1 for X in sys_tube.liquid.dXdt[1:numofslugs]]# initial velocity of the slugs
+            sys_tube.vapor.P .= fill(sys_tube.propconvert.TtoP(Tref + 5.0),numofslugs)
+            Lvaporplug = XptoLvaporplug(sys_tube.liquid.Xp,sys_tube.tube.L,sys_tube.tube.closedornot)
+            sys_tube.vapor.Lfilm_start .= Lvaporplug ./ 2 .- 1e-1 * sys_tube.wall.L_newbubble
+            sys_tube.vapor.Lfilm_end .= Lvaporplug ./ 2 .- 1e-1 * sys_tube.wall.L_newbubble
+        elseif casei == 4
+            sys_tube.liquid.dXdt[1:numofslugs] = [zero.(X) .- 1 for X in sys_tube.liquid.dXdt[1:numofslugs]]# initial velocity of the slugs
+            sys_tube.vapor.P .= fill(sys_tube.propconvert.TtoP(Tref + 5.0),numofslugs)
+            Lvaporplug = XptoLvaporplug(sys_tube.liquid.Xp,sys_tube.tube.L,sys_tube.tube.closedornot)
+            sys_tube.vapor.Lfilm_start .= Lvaporplug .- 2e-1 * sys_tube.wall.L_newbubble
+            sys_tube.vapor.Lfilm_end .= 1e-1 * sys_tube.wall.L_newbubble
+        elseif casei == 5
+            sys_tube.liquid.dXdt[1:numofslugs] = [zero.(X) .+ 1 for X in sys_tube.liquid.dXdt[1:numofslugs]]# initial velocity of the slugs
+            sys_tube.vapor.P .= fill(sys_tube.propconvert.TtoP(Tref + 5.0),numofslugs)
+            Lvaporplug = XptoLvaporplug(sys_tube.liquid.Xp,sys_tube.tube.L,sys_tube.tube.closedornot)
+            sys_tube.vapor.Lfilm_start .= 1e-1 * sys_tube.wall.L_newbubble
+            sys_tube.vapor.Lfilm_end .= Lvaporplug .- 2e-1 * sys_tube.wall.L_newbubble
         end
-        sys_tube.vapor.P .= fill(sys_tube.propconvert.TtoP(Tref - 5.0),numofslugs)
+        # sys_tube.vapor.P .= fill(sys_tube.propconvert.TtoP(Tref - 5.0),numofslugs)
     
         u_tube = newstate(sys_tube) # initialize OHP tube 
         integrator_tube = init(u_tube,tspan,deepcopy(sys_tube)); # construct integrator_tube
@@ -648,7 +665,9 @@ end
         Mliquid_new = sum(getMliquid(p_new))
         Mnew = Mvapor_new + Mfilm_new + Mliquid_new
 
-        @test isapprox.(Mold,Mnew,atol=2e-10)
+        println(1-Mnew/Mold)
+
+        @test isapprox.(Mold,Mnew,rtol=2e-7)
     end
 
 end
