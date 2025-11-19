@@ -2,8 +2,8 @@ export merging_affect!,merging_condition,nucleateboiling,merging
 
 function merging_affect!(integrator)
 
-    p = getcurrentsys(integrator.u,integrator.p);
-    δv = DEFAULT_MERGE_FRAC*p.wall.L_newbubble
+    p = deepcopy(getcurrentsys_nowall!(integrator.u,integrator.p));
+    δv = DEFAULT_LIQUID_MERGE_FRAC*p.wall.L_newbubble
 
     merge_flags = getmerge_flags(δv,p)
     indexmergingsite = sort(findall(x->x == true, merge_flags),rev = true)
@@ -37,9 +37,9 @@ end
 
 function merging_condition(u,t,integrator)     # only for closed loop tube
 
-    p = getcurrentsys!(integrator.u,integrator.p);
+    p = getcurrentsys_nowall!(integrator.u,integrator.p);
     # δv = p.tube.d > (integrator.dt*maximum(p.liquid.dXdt)[1]) ? p.tube.d : (integrator.dt*maximum(p.liquid.dXdt)[1])
-    δv = DEFAULT_MERGE_FRAC*p.wall.L_newbubble
+    δv = DEFAULT_LIQUID_MERGE_FRAC*p.wall.L_newbubble
 
     sys = p
 
@@ -100,7 +100,7 @@ function merging(p,i)
         Linsert = (Mvapor[i] + Mfilm[1][i] + Mfilm[2][i] - 0.5 .* Ac .* Lvaporplug[i] .* (PtoD(p.vapor.P[right_index]))) ./ (ρₗ .* Ac .- 0.5 .* Ac .* (PtoD(p.vapor.P[right_index])))
         Xpnewone = (p.liquid.Xp[liquid_left_i][1], p.liquid.Xp[liquid_right_i][end] - Lvaporplug[i] + Linsert)
         dXdtnewonevalue = 0.0
-    elseif i == numofvaporbubble
+    elseif closedornot == false && i == numofvaporbubble
         Linsert = (Mvapor[i] + Mfilm[1][i] + Mfilm[2][i] - 0.5 .* Ac .* Lvaporplug[i] .* (PtoD(p.vapor.P[left_index]))) ./ (ρₗ .* Ac .- 0.5 .* Ac .* (PtoD(p.vapor.P[left_index])))
         Xpnewone = (p.liquid.Xp[liquid_left_i][1]+Lvaporplug[i] - Linsert, p.liquid.Xp[liquid_right_i][end])
         dXdtnewonevalue = 0.0

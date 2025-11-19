@@ -3,7 +3,7 @@ XptoLvaporplug,XptoLliquidslug,getXpvapor, # transfer Xp to the length of vapors
 # ifamong,constructXarrays,
 duliquidθtovec,duwallθtovec,liquidθtovec,wallθtovec, # transfer temperature field to state vector for liquid and wall.
 Hfilm,getδarea,getδFromδarea,getMvapor,getMfilm,getMliquid,getMtotal,getchargeratio,getVolumevapor,
-getCa,filmδcorr,getAdeposit,f_churchill,Catoδ,RntoΔT,systoM
+getCa,getAdeposit,f_churchill,Catoδ,RntoΔT,systoM
 
 function getgvec(g0::T,g_angle::T=3/2*π) where {T<:Real}
     g = g0*[cos(g_angle),sin(g_angle)]
@@ -335,11 +335,11 @@ function Hfilm(δfilm,vapor::Vapor)
     δmax = FILM_MAX_THICKNESS
     kₗ = k
 
-    if (δfilm > δthreshold) && (δfilm < δmax)
+    if (δfilm > δthreshold) && (δfilm <= δmax)
         return kₗ/δfilm
-    elseif (δfilm > δmax) && (δfilm < 2δmax)
+    elseif (δfilm > δmax) && (δfilm <= 2δmax)
         return  kₗ/δmax - (δfilm-δmax)*(kₗ/δmax^2) + 1e-6
-    elseif δfilm > δmin
+    elseif δfilm > δmin && δfilm <= δthreshold
         return  Hᵥ + (δfilm-δmin)*(kₗ/δthreshold - Hᵥ)/(δthreshold-δmin) + 1e-6
     else
         # return Hᵥ  + 1e-6
@@ -386,6 +386,20 @@ function getchargeratio(sys)
     Vtotal = L * Ac # total volume of the tube
     Mliquidfull = ρₗ * Vtotal # mass of the tube if it is full of liquid
     return Mtotal / Mliquidfull
+end
+
+"""
+    getMtotal(sys::PHPSystem)
+
+Given tube system `sys`, return the total mass of the all regions.
+"""
+function getMtotal(sys0::PHPSystem)
+
+    Mvapor = sum(getMvapor(sys0))
+    Mliquid = sum(getMliquid(sys0))
+    Mfilm = sum(sum.(getMfilm(sys0)))
+
+    return Mvapor + Mliquid + Mfilm
 end
  
 """
@@ -475,15 +489,6 @@ function getCa(μ,σ,velocity)
     Ca = abs.(μ.*velocity./σ)
 end
 
-"""
-    filmδcorr(Ca,d)
-
-Return the film thickness of deposited film, based on Aussillous and Quere (2000),
-using the capillary number and diameter.
-"""
-function filmδcorr(Ca,d)
-    filmδ = d .* 0.67.*Ca.^(2/3)./(1 .+ 3.35.*Ca.^(2/3))
-end
 
 """
     getAdeposit(sys,δdeposit) -> Vector{Tuple}
@@ -549,8 +554,8 @@ end
 
 Return the Darcy friction factor, based on the Churchill correlation.
 """
-function f_churchill(Re,ϵ=0.001)
-    Θ1 = (-2.457*log((7/Re)^(0.9)  +  0.27 * ϵ))^16
+function f_churchill(Re,eps_rel=0.001)
+    Θ1 = (-2.457*log((7/Re)^(0.9)  +  0.27 * eps_rel))^16
     Θ2 = (37530/Re)^16
     f=8*((8/Re)^12+(1/(Θ1+Θ2)^1.5))^(1/12)
     
@@ -566,7 +571,7 @@ It uses an adjustment factor that can be tuned empirically.
 """
 function Catoδ(d,Ca;adjust_factor=1,δmin=2e-6,δmax=1e-4)
 
-    δ = Ca .^ (2/3) ./ (1 .+ Ca .^ (2/3)) .* d ./ 2 .* adjust_factor
+    δ = 1.34 .* Ca .^ (2/3) ./ (1 .+ 3.35 .* Ca .^ (2/3)) .* d ./ 2 .* adjust_factor
     if (δ < δmin)
         return δmin
     elseif (δ > δmax)
@@ -578,21 +583,21 @@ end
 
 
 """
-    RntoΔT(Rn,Tref,fluid_type,d,TtoP) -> Vector
+    RntoΔT(Rn,Tavg,fluid_type,d,TtoP) -> Vector
 
 Given the nucleation radius `Rn`, the fluid type `fluid_type` and reference
-temperature `Tref`, the channel diameter `d`, and the temperature-to-pressure
+temperature `Tavg`, the channel diameter `d`, and the temperature-to-pressure
 relation `TtoP`, return the superheat threshold temperature for boiling.
 """
-function RntoΔT(Rn,Tref,fluid_type,d,TtoP)
-    p_fluid = SaturationFluidProperty(fluid_type,Tref);
+function RntoΔT(Rn,Tavg,fluid_type,d,TtoP)
+    p_fluid = SaturationFluidProperty(fluid_type,Tavg);
 
     Rkg = p_fluid.R/p_fluid.M
     Rin = d/2
-    P = TtoP(Tref)
+    P = TtoP(Tavg)
 
-    y = Rkg .* Tref ./ (p_fluid.hᵥ-p_fluid.hₗ) .* log.(1 .+ 2 .* p_fluid.σ ./ P .* (1 ./ Rn .- 1/(2Rin)))
-    ΔTref = Tref .* (1 ./ (1 .- y) .- 1)
+    y = Rkg .* Tavg ./ (p_fluid.hᵥ-p_fluid.hₗ) .* log.(1 .+ 2 .* p_fluid.σ ./ P .* (1 ./ Rn .- 1/(2Rin)))
+    ΔTavg = Tavg .* (1 ./ (1 .- y) .- 1)
 end
 
 """

@@ -1,7 +1,7 @@
 export boiling_affect!,nucleateboiling,boiling_condition
 # boiling_condition,
 function boiling_condition(u,t,integrator)
-    t_interval = BOILING_T_INTERVAL
+    t_interval = DEFAULT_BOIL_SCAN_INTERVAL
 
     ϵ = 1e-5
 
@@ -10,7 +10,7 @@ end
 
 function boiling_affect!(integrator)
 
-    p = deepcopy(getcurrentsys!(integrator.u,integrator.p))
+    p = deepcopy(getcurrentsys_nowall!(integrator.u,integrator.p))
 
     @unpack wall, propconvert, tube, vapor, liquid = p
     @unpack fluid_type, PtoT, TtoP, PtoD = propconvert
@@ -18,9 +18,9 @@ function boiling_affect!(integrator)
     @unpack d = tube
     @unpack P = vapor
 
-    Tref = (PtoT.(maximum(P)) + PtoT.(minimum(P)))/2
+    Tavg = (PtoT.(maximum(P)) + PtoT.(minimum(P)))/2
 
-    Δθthreshold = RntoΔT(Rn,Tref,fluid_type,d,TtoP)
+    Δθthreshold = RntoΔT(Rn,Tavg,fluid_type,d,TtoP)
   
     Δθ_array = getsuperheat.(Xstations,Ref(p))
     superheat_flag = (Δθ_array .> Δθthreshold) .* ((integrator.t .- p.wall.boiltime_stations) .> boil_interval)
@@ -119,13 +119,14 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
     sysnew.vapor.Lfilm_start = Lfilm_start_new
     sysnew.vapor.Lfilm_end = Lfilm_end_new
 
-    # Mvapor_old = sum(getMvapor(sys))
-    # Mfilm_old = sum(sum.(getMfilm(sys)))
+    # multuply a factor to adjust the length of vapor/liquid to conserve mass, accounting for the inserted vapor volume.
+    PtoD = sys.propconvert.PtoD
+    ρinsert = PtoD(Pinsert)
     Mvapor_new = sum(getMvapor(sysnew))
     Mfilm_new = sum(sum.(getMfilm(sysnew)))
     Mliquid_new = sum(getMliquid(sysnew))
     Mold = sysnew.cache.mass
-    L_adjust = (Mvapor_new + Mfilm_new + Mliquid_new - Mold)./ (ρₗ*Ac)
+    L_adjust = (Mvapor_new + Mfilm_new + Mliquid_new - Mold)./ (ρₗ*Ac) .* (1 +  ρinsert/ρₗ)
 
     Lvaporplug = XptoLvaporplug(sysnew.liquid.Xp,sysnew.tube.L,sysnew.tube.closedornot)
     Lpurevapor = Lvaporplug .- Lfilm_start_new .- Lfilm_end_new

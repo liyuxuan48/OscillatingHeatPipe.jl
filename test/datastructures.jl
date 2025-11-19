@@ -235,6 +235,152 @@ sys_plate = construct_system(prob)
                                                  
 end
 
+
+# @testset "Plate ADI solver" begin
+
+#     sys_plate_test = deepcopy(sys_plate)
+#     u_plate = newstate(sys_plate_test) .+ Tref # initialize plate T field to uniform Tref
+#     integrator_plate = init(u_plate,tspan,sys_plate_test) # construct integrator_plate
+
+#     ohp = sys_plate.qline
+    
+#     @test ohp[1].body == ohpgeom.body
+
+#     #	Single eigenmode decay
+
+#     xylim = sys_plate_test.grid.xlim
+#     Δx = sys_plate_test.grid.Δx
+#     I0 = sys_plate_test.grid.I0
+
+#     xgrid = zero(temperature(integrator_plate))
+#     ygrid = zero(xgrid)
+#     for i in eachindex(xgrid[:,1])
+#         xgrid[i,:] .= xylim[1][1] .+ Δx*(i-1)
+#     end
+#     for i in eachindex(ygrid[1,:])
+#         ygrid[:,i] .= xylim[2][1] .+ Δx*(i-1)
+#     end
+
+#     temperature(integrator_plate) .= cos.(π .* xgrid ./ (xylim[1][2] .+ 0.5Δx)) .* cos.(2π .* ygrid ./ (xylim[2][2] .+ 0.5Δx))
+#     α =integrator_plate.p.params.α
+#     ρₛ = integrator_plate.p.params.ρ
+#     cₛ = integrator_plate.p.params.c
+
+#     T_hist = []
+#     Tgrid = temperature(integrator_plate);
+#     Tgrid_ini = deepcopy(Tgrid)
+#     tstep = 5e-3
+#     tend = 1.0
+#     ts = tstep:tstep:tend
+
+#     for i in ts
+#         push!(T_hist,deepcopy(ADI_newT!(Tgrid,sys_plate_test,tstep)))
+#     end
+
+
+#     j = rand(1:size(T_hist,1))
+#     Tratio_max = maximum(T_hist[j] ./ Tgrid_ini)
+#     Tratio_min = minimum(T_hist[j] ./ Tgrid_ini)
+
+#     # verify they all decay at the same rate
+#     @test isapprox(Tratio_max,Tratio_min,rtol=1e-10)
+
+#     Lx = xylim[1][2] .+ 0.5Δx
+#     Ly = xylim[2][2] .+ 0.5Δx
+    
+#     # then verify maximum magnitude decay exponentially
+#     @test isapprox(log.(maximum.(T_hist) ./ maximum(Tgrid_ini)),-α * ((π/Lx)^2 + (2π/Ly)^2) .* ts,rtol=2e-3)
+
+#     # small heater case for one step
+#     T0 = Tref + 0.0 # uniform initial temperature
+
+#     temperature(integrator_plate) .= T0 # reset to uniform Tref
+#     T_hist = []
+#     Tgrid = temperature(integrator_plate);
+#     Tgrid_ini = deepcopy(Tgrid)
+#     tstep = 1e-2
+#     ts = tstep:tstep:tstep
+
+#     for i in ts
+#         push!(T_hist,deepcopy(ADI_timemarching!(Tgrid,sys_plate_test,tstep)))
+#     end
+
+#     # test mean temperature (energy conservation)
+
+#     T_hist_mean = mean(T_hist[1])
+#     ΔT_mean = T_hist_mean - T0
+#     ΔT_mean_analytical = power * tstep / (ρₛ * cₛ * 2Lx * 2Ly * plate_d)
+
+#     @test isapprox(ΔT_mean,ΔT_mean_analytical,atol=1e-12,rtol=1e-4)
+
+#     # test T rise/drop for one step with heater and condenser
+#     T0 = Tref + 10.0 # uniform initial temperature
+
+#     temperature(integrator_plate) .= T0 # reset to uniform Tref
+#     T_hist = []
+#     Tgrid = temperature(integrator_plate);
+#     Tgrid_ini = deepcopy(Tgrid)
+#     tstep = 1e-2
+#     ts = tstep:tstep:tstep
+
+#     for i in ts
+#         push!(T_hist,deepcopy(ADI_timemarching!(Tgrid,sys_plate_test,tstep)))
+#     end
+
+#     maximum_T = maximum(T_hist[1])
+#     minimum_T = minimum(T_hist[1])
+#     ΔT_max = maximum_T - T0
+#     ΔT_min = minimum_T - T0
+#     total_heater_area = 0.5inches*0.5inches;
+#     qe = power/total_heater_area
+#     ΔT_max_analytical = qe * tstep / (ρₛ * cₛ * plate_d)
+
+
+#     hc = sys_plate_test.qhdT[2].hc
+#     qc = -hc*(T0-Tref)
+#     ΔT_min_analytical = qc * tstep / (ρₛ * cₛ * plate_d)
+
+#     @test isapprox(ΔT_max,ΔT_max_analytical,atol=1e-12,rtol=5e-3)
+#     @test isapprox(ΔT_min,ΔT_min_analytical,atol=1e-12,rtol=5e-3)
+
+
+#     # test energy rise/drop for one step with small heater and line source
+
+#     sys_plate_test2 = ComputationalHeatTransfer.HeatConduction(params,Δx,xlim,ylim,Δt_max,qline=ohpgeom)
+#     # sys_tube = initialize_ohpsys(sys_plate_test2,p_fluid,power)
+#     u_plate2 = newstate(sys_plate_test2) .+ Tref # initialize plate T field to uniform Tref
+#     integrator_plate2 = init(u_plate2,tspan,sys_plate_test2) #
+
+#     xylim = sys_plate_test2.grid.xlim
+#     Lx = xylim[1][2] .+ 0.5Δx
+#     Ly = xylim[2][2] .+ 0.5Δx
+
+#     T0 = Tref + 0.0 # uniform initial temperature
+#     q1D_value = -2.0 # W/m line heat flux
+#     q1D = zeros(length(sys_plate_test2.qline[1].arccoord)) .+ q1D_value # W/m line heat flux
+#     # q1D = deepcopy(zero(sys_plate_test2.qline[1].arccoord) .+ 1.0) # W/m line heat flux
+#     L = sys_plate_test2.qline[1].arccoord[end]
+#     set_linesource_strength!(sys_plate_test2,q1D)
+
+#     temperature(integrator_plate2) .= T0 # reset to uniform Tref
+#     T_hist = []
+#     Tgrid = temperature(integrator_plate2);
+#     Tgrid_ini = deepcopy(Tgrid)
+#     tstep = 1e-2
+#     ts = tstep:tstep:tstep
+
+#     for i in ts
+#         push!(T_hist,deepcopy(ADI_timemarching!(Tgrid,sys_plate_test2,tstep)))
+#     end
+
+#     T_hist_mean = mean(T_hist[1])
+#     ΔT_mean = T_hist_mean - T0
+#     ΔT_mean_analytical = (-L*q1D_value) * tstep / (ρₛ * cₛ * 2Lx * 2Ly * plate_d)
+
+#     @test isapprox(ΔT_mean,ΔT_mean_analytical,atol=1e-12,rtol=1e-4)
+                                                 
+# end
+
 sys_tube = initialize_ohpsys(sys_plate,p_fluid,power)
 
 @testset "Film areas" begin
@@ -277,3 +423,73 @@ sys_tube = initialize_ohpsys(sys_plate,p_fluid,power)
     @test getMvapor(sys_tube) ≈ ρv.*vol
 
 end
+
+
+@testset "Mass functions" begin
+
+    numofslugs = length(sys_tube.liquid.Xp)
+
+    sys_tube.vapor.δstart .= zeros(numofslugs) .+ 1e-5 .+ 1e-5 .* rand(numofslugs) # initial velocity of the slugs
+    sys_tube.vapor.δend .= zeros(numofslugs) .+ 1e-5 .+ 1e-5 .* rand(numofslugs) # initial velocity of the slugs
+    
+
+    d = sys_tube.tube.d
+    δstart = sys_tube.vapor.δstart
+    δend = sys_tube.vapor.δend
+    Lfilm_start = sys_tube.vapor.Lfilm_start
+    Lfilm_end = sys_tube.vapor.Lfilm_end
+    Xp = sys_tube.liquid.Xp
+    dXdt = sys_tube.liquid.dXdt
+    Ac = sys_tube.tube.Ac
+    L = sys_tube.tube.L
+    ρₗ = sys_tube.liquid.ρₗ
+    closedornot = sys_tube.tube.closedornot
+
+    Lvaporplug = XptoLvaporplug(Xp,L,closedornot)
+    Lliquidslug = XptoLliquidslug(Xp,L)
+    Astart = getδarea.(Ac,d,δstart)
+    Aend = getδarea.(Ac,d,δend)
+
+    ρv = sys_tube.propconvert.PtoD.(sys_tube.vapor.P)
+
+    # mass of vapor
+    vol_vapor_analytical = Lvaporplug .* Ac .- Lfilm_start .* Astart .- Lfilm_end .* Aend
+    M_vapor_analytical = ρv .* vol_vapor_analytical
+
+    @test OscillatingHeatPipe.getMvapor(sys_tube) ≈ M_vapor_analytical
+
+    # mass of liquid
+    vol_liquid_analytical = Lliquidslug .* Ac
+    M_liquid_analytical = ρₗ .* vol_liquid_analytical
+
+    @test OscillatingHeatPipe.getMliquid(sys_tube) ≈ M_liquid_analytical
+
+    # mass of films
+    vol_film_start_analytical = Lfilm_start .* Astart
+    M_film_start_analytical = ρₗ .* vol_film_start_analytical
+    vol_film_end_analytical = Lfilm_end .* Aend
+    M_film_end_analytical = ρₗ .* vol_film_end_analytical
+
+    Mfilm_start,Mfilm_end = OscillatingHeatPipe.getMfilm(sys_tube)
+
+    @test Mfilm_start ≈ M_film_start_analytical
+    @test Mfilm_end ≈ M_film_end_analytical
+
+    @test getMtotal(sys_tube) ≈ sum(M_vapor_analytical) + sum(M_liquid_analytical) + sum(M_film_start_analytical) + sum(M_film_end_analytical)
+
+end
+
+# some threshold values need to be changed for other applications
+@testset "Hfilm" begin
+
+    δmin = sys_tube.vapor.δmin;
+    δthreshold = 5e-6
+    δmax = 1e-4
+
+    kₗ = sys_tube.vapor.k
+    Hᵥ = sys_tube.vapor.Hᵥ
+    δs = [1e-6;3e-6;1e-5;1.5e-4;3e-4]
+
+    @test OscillatingHeatPipe.Hfilm.(δs,[sys_tube]) ≈ [0.0;(δs[2]-δmin)*(kₗ/δthreshold - Hᵥ)/(δthreshold-δmin);kₗ/δs[3];0.5*kₗ/δmax+1e-6;0.0]
+end
+

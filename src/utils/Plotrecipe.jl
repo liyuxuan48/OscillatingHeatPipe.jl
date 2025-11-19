@@ -1,6 +1,6 @@
 import Plots: mm,palette
 
-export OHP,OHPTemp,OHPSlug,OHPPres,OHPSuper,OHPTexp,OHPTcurve,OHPCond,OHPV,OHP1DT,OHP1DP,OHP1DΔT,OHPTwall
+export OHP,OHPTemp,OHPSlug,OHPPres,OHPSuper,OHP2DΔT,OHPTexp,OHPTcurve,OHPCond,OHPV,OHP1DT,OHP1DP,OHP1DΔT,OHPTwall
 
 mutable struct OHP end
 
@@ -8,6 +8,7 @@ mutable struct OHPTemp end
 mutable struct OHPSlug end
 mutable struct OHPPres end
 mutable struct OHPSuper end
+mutable struct OHP2DΔT end
 
 mutable struct OHPTexp end
 mutable struct OHPTcurve end
@@ -90,22 +91,17 @@ end
 @recipe function f(::OHPSlug, i::Int64, SimuResult::SimulationResult; plain=false)
     adjust = 1e-2;
     
-    tube_sys = getcurrentsys!(SimuResult.tube_hist_u[i],SimuResult.integrator_tube.p)
-    # tube_sys.wall.θarray = deepcopy(temperature_linesource(SimuResult.integrator_plate))
-    closedornot := SimuResult.integrator_tube.p.tube.closedornot
+    tube_sys = getcurrentsys(SimuResult,i)
+    closedornot := tube_sys.tube.closedornot
     
     tube_hist_t = SimuResult.tube_hist_t
     
     sluginterp = slug_interp(tube_sys)
     xs =  tube_sys.wall.Xarray
     markers  = map(sluginterp, xs)
-    # Hₗ = SimuResult.integrator_tube.p.liquid.Hₗ
-    # Htmp = sys_to_Harray(tube_sys)
-    # Htmp_marker = round.(div.(Htmp,Hₗ-1e-10))
     
-    # grid = SimuResult.grid
     grid = SimuResult.integrator_plate.p.base_cache.g
-    # ohp = SimuResult.integrator_plate.p.qline[1].body
+
     ohp_model = SimuResult.integrator_plate.p.forcing["heating models"][end]
     ohp = ohp_model.transform(ohp_model.shape)
     
@@ -158,15 +154,18 @@ end
 @recipe function f(::OHPPres, i::Int64, SimuResult::SimulationResult)
     adjust = 1e-2;
 
-    tube_sys = getcurrentsys!(SimuResult.tube_hist_u[i],SimuResult.integrator_tube.p)
-    # tube_sys.wall.θarray = deepcopy(temperature_linesource(SimuResult.integrator_plate))
+    tube_sys = getcurrentsys(SimuResult,i)
+    closedornot := tube_sys.tube.closedornot
     
     tube_hist_t = SimuResult.tube_hist_t
     
     Ptmp = tube_sys.mapping.P_interp_liquidtowall[tube_sys.wall.Xarray]
     
-    grid = SimuResult.grid
-    ohp = SimuResult.integrator_plate.p.qline[1].body
+    # grid = SimuResult.grid
+    grid = SimuResult.integrator_plate.p.base_cache.g
+    # ohp = SimuResult.integrator_plate.p.qline[1].body
+    ohp_model = SimuResult.integrator_plate.p.forcing["heating models"][end]
+    ohp = ohp_model.transform(ohp_model.shape)
     
     # seriestype --> :heatmap
     xlabel --> "x [m]"
@@ -182,7 +181,7 @@ end
 
     # color := palette(:heat, 3)
     # colorbar_title --> "\n P[Pa]"
-    right_margin --> 5Plots.mm
+    right_margin --> 5mm
     # colorbar --> true
     # legend --> true
     # grid --> true
@@ -217,22 +216,28 @@ end
 @recipe function f(::OHPSuper, i::Int64, SimuResult::SimulationResult)
     adjust = 1e-2;
 
-    tube_sys = getcurrentsys!(SimuResult.tube_hist_u[i],SimuResult.integrator_tube.p)
-    # tube_sys.wall.θarray = deepcopy(temperature_linesource(SimuResult.integrator_plate))
+    tube_sys = getcurrentsys(SimuResult,i)
+    closedornot := tube_sys.tube.closedornot
     
     tube_hist_t = SimuResult.tube_hist_t
     
     # Twall = tube_sys.mapping.θ_interp_walltoliquid[tube_sys.wall.Xarray]
-    Twall = SimuResult.tube_hist_θwall[i]
     @unpack PtoT,TtoP = tube_sys.propconvert
+    @unpack P = tube_sys.vapor
+
+    Twall = SimuResult.tube_hist_θwall[i]
+    Tref = (PtoT.(maximum(P)) + PtoT.(minimum(P)))/2
     Tsat = PtoT(tube_sys.mapping.P_interp_liquidtowall[tube_sys.wall.Xarray])
 
     ΔT = Twall - Tsat
 
-    ΔTmin = RntoΔT(SimuResult.integrator_tube.p.wall.Rn,291.2,SimuResult.integrator_tube.p.wall.fluid_type,SimuResult.integrator_tube.p.tube.d,TtoP)
+    ΔTmin = RntoΔT(SimuResult.integrator_tube.p.wall.Rn,Tref,SimuResult.integrator_tube.p.wall.fluid_type,SimuResult.integrator_tube.p.tube.d,TtoP)
     
-    grid = SimuResult.grid
-    ohp = SimuResult.integrator_plate.p.qline[1].body
+    # grid = SimuResult.grid
+    grid = SimuResult.integrator_plate.p.base_cache.g
+    # ohp = SimuResult.integrator_plate.p.qline[1].body
+    ohp_model = SimuResult.integrator_plate.p.forcing["heating models"][end]
+    ohp = ohp_model.transform(ohp_model.shape)
     
     # seriestype --> :heatmap
     xlabel --> "x [m]"
@@ -248,7 +253,7 @@ end
 
     # color := palette(:heat, 3)
     # colorbar_title --> "\n P[Pa]"
-    right_margin --> 5Plots.mm
+    right_margin --> 5mm
     # colorbar --> true
     # legend --> true
     # grid --> true
@@ -256,7 +261,7 @@ end
     xlimit --> grid.xlim[1]
     ylimit --> grid.xlim[2]
 
-    annotation := [(0.0, -0.028, string("ΔT > critical value ",round(ΔTmin, digits=3), "[K]")),(0.0, 0.03, string("time = ", round(tube_hist_t[i], digits=2), "[s]"))]
+    annotation := [(0.0, -0.032, string("ΔT > critical value ",round(ΔTmin, digits=3), "[K], \n  Tref =",round(Tref, digits=3)," [K]")),(0.0, 0.03, string("time = ", round(tube_hist_t[i], digits=2), "[s]"))]
 
     # @series begin
     #     # annotation := (0, 0, "Look up!")
@@ -414,7 +419,7 @@ end
 
 @recipe function f(::OHPV, SimuResult::SimulationResult)  
     
-    sysfinal = getcurrentsys.(SimuResult.tube_hist_u,[SimuResult.integrator_tube.p]);
+    sysfinal = getcurrentsys_nowall.(SimuResult.tube_hist_u,[SimuResult.integrator_tube.p]);
     thist = SimuResult.tube_hist_t
     
     Vavg_hist = []
@@ -477,8 +482,7 @@ end
 end
 
 @recipe function f(::OHP1DT,i::Int64,SimuResult::SimulationResult)
-    tube_sys = getcurrentsys!(SimuResult.tube_hist_u[i],SimuResult.integrator_tube.p)
-    tube_sys.wall.θarray = SimuResult.tube_hist_θwall[i]
+    tube_sys = getcurrentsys(SimuResult,i)
 
     # title --> string(" time = ",SimuResult.tube_hist_t)
     plottype := "T"
@@ -487,8 +491,7 @@ end
 end
 
 @recipe function f(::OHP1DP,i::Int64,SimuResult::SimulationResult)
-    tube_sys = getcurrentsys!(SimuResult.tube_hist_u[i],SimuResult.integrator_tube.p)
-    tube_sys.wall.θarray = SimuResult.tube_hist_θwall[i]
+    tube_sys = getcurrentsys(SimuResult,i)
 
     plottype := "P"
     time := SimuResult.tube_hist_t[i]
@@ -496,8 +499,7 @@ end
 end
 
 @recipe function f(::OHP1DΔT,i::Int64,SimuResult::SimulationResult)
-    tube_sys = getcurrentsys!(SimuResult.tube_hist_u[i],SimuResult.integrator_tube.p)
-    tube_sys.wall.θarray = SimuResult.tube_hist_θwall[i]
+    tube_sys = getcurrentsys(SimuResult,i)
     L = tube_sys.tube.L
 
     @unpack TtoP = tube_sys.propconvert
@@ -509,7 +511,7 @@ end
         c := :red
         linestyle := :dash
         linewidth := 2
-        label :="critical ΔT"
+        label :="critical ΔT (Tref = 291.2 K)"
         [0,L],[ΔTmin,ΔTmin]
     end
 
@@ -519,8 +521,7 @@ end
 end
 
 @recipe function f(::OHPTwall,i::Int64,SimuResult::SimulationResult)
-    tube_sys = getcurrentsys!(SimuResult.tube_hist_u[i],SimuResult.integrator_tube.p)
-    tube_sys.wall.θarray = SimuResult.tube_hist_θwall[i]
+    tube_sys = getcurrentsys(SimuResult,i)
 
     c := :blue
 
@@ -672,17 +673,23 @@ end
 #     return val.body
 # end
 
-@recipe function f(ohp::BasicBody;closedornot=NaN)
-    #print(closedornot)
-
+@recipe function f(ohp::BasicBody;closedornot::Union{Bool, Nothing}=nothing)
     legend := false
     label := false
+
+    # Extract user-provided line_z (if any)
+    line_z_data = get(plotattributes, :line_z, nothing)
+
     if(closedornot==true)
         color --> :blue # change default plot settings
-        ohp_copy=deepcopy(ohp)
-        push!(ohp_copy.x,ohp_copy.x[1])
-        push!(ohp_copy.y,ohp_copy.y[1])
-        return ohp_copy.x, ohp_copy.y
+        x_closed = [ohp.x; ohp.x[1]]
+        y_closed = [ohp.y; ohp.y[1]]
+
+        # If user supplied line_z, close it too
+        if line_z_data !== nothing
+            line_z --> [line_z_data; line_z_data[1]]
+        end
+        return x_closed, y_closed
         
     elseif(closedornot==false)
             color --> :red

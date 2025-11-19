@@ -1,11 +1,14 @@
-export getcurrentsys!,getcurrentsys,getRTD,getconfig,getghist,getthist,getgt,getsysfinal,getwetness,getV,getδ,getHtmp_marker,
+export getcurrentsys_nowall!,getcurrentsys_nowall,getcurrentsys,getRTD,getconfig,getghist,getthist,getgt,getsysfinal,getwetness,getV,getδ,getHtmp_marker,
 translateOHPdata,getTcurve,oneDtwoDtransform,get_boil_matrix,get1DTandP
 
 """
-    give a new u and an old system, return a new system sysnew
+    give a new u and an old system, return a new system sysnew, not updating wall temperature, 
+    but update interpolations based on the current wall temperature in sys0.
+
+    So this function is basically updating the system based on the most current u and wall temperature in sys0.
 """
 
-function getcurrentsys!(u,sys0)
+function getcurrentsys_nowall!(u,sys0)
 
         indexes = Int64[]
         θliquidrec = Array[]
@@ -65,9 +68,16 @@ function getcurrentsys!(u,sys0)
     return sysnew
 end
 
-function getcurrentsys(u,sys0)
+function getcurrentsys(SimuResult::SimulationResult,i::Int64)
+    u = SimuResult.tube_hist_u[i]
+    sys0 = SimuResult.integrator_tube.p
+    θwall_plate = SimuResult.tube_hist_θwall[i]
+
     systemp = deepcopy(sys0)
-    getcurrentsys!(u,systemp)
+    systemp.wall.θarray = θwall_plate
+    sys_tube = getcurrentsys_nowall!(u,systemp)
+
+    sys_tube
 end
 
 function modX!(Xp,L)
@@ -159,7 +169,7 @@ end
 function getsysfinal(tube_hist)
     sysfinal = []
     for tube_i in tube_hist
-        push!(sysfinal, deepcopy(getcurrentsys!(tube_i.u,tube_i.p)))
+        push!(sysfinal, deepcopy(getcurrentsys_nowall!(tube_i.u,tube_i.p)))
     end
     
     sysfinal
@@ -168,7 +178,7 @@ end
 function getsysfinal(tube_hist_u,tube_hist_θwall,integrator_tube)
     sysfinal = []
     for i in eachindex(tube_hist_u)
-        push!(sysfinal, deepcopy(getcurrentsys!(tube_hist_u[i],integrator_tube.p)))
+        push!(sysfinal, deepcopy(getcurrentsys_nowall!(tube_hist_u[i],integrator_tube.p)))
         sysfinal[i].wall.θarray = tube_hist_θwall[i]
     end
     
@@ -313,7 +323,7 @@ function get1DTandP(xsensors::AbstractVector, SimuResult::SimulationResult)
     phist = []
     sysfinal = get
     for i in eachindex(SimuResult.tube_hist_u)
-        tube_sys = getcurrentsys!(SimuResult.tube_hist_u[i],SimuResult.integrator_tube.p)
+        tube_sys = getcurrentsys_nowall!(SimuResult.tube_hist_u[i],SimuResult.integrator_tube.p)
         ptemp = tube_sys.mapping.P_interp_liquidtowall[xsensors]
         @unpack PtoT = tube_sys.propconvert
         θtemp = PtoT.(ptemp)
