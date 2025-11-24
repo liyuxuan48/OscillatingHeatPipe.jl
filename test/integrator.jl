@@ -503,8 +503,47 @@ end
     p_old = deepcopy(integrator_tube.p)
     OscillatingHeatPipe.exchangepinfo!(integrator_tube,integrator_plate)
 
+    L = p_old.tube.L
+    randX = rand()*L
+    @test p_old.mapping.θ_interp_walltoliquid(randX) == integrator_tube.p.mapping.θ_interp_walltoliquid(randX)
     @test all(p_old.vapor.P .== integrator_tube.p.vapor.P)
     @test SimuResult.tube_hist_θwall[end] == integrator_tube.p.wall.θarray
     @test SimuResult.tube_hist_u[end] == integrator_tube.u
     @test SimuResult.tube_hist_t[end] == integrator_tube.t
+end
+
+
+@testset "Multithreading" begin
+
+    sys_tube = initialize_ohpsys(sys_plate,p_fluid,power)
+
+    tspan = (0.0, 1.0); # start time and end time
+    dt_record = 1.0   # saving time interval
+
+    tstep = 1e-3     # actrual time marching step
+
+    u_plate = init_sol(sys_plate) .+ 10.0# initialize plate T field to uniform Tref
+    integrator_plate = init(u_plate,tspan,sys_plate) # construct integrator_plate
+
+    u_tube = newstate(sys_tube) # initialize OHP tube 
+    integrator_tube = init(u_tube,tspan,deepcopy(sys_tube)); # construct integrator_tube
+
+
+    integrator_plate_parallel = deepcopy(integrator_plate)
+    integrator_tube_parallel = deepcopy(integrator_tube)
+
+    @test integrator_tube_parallel.u == integrator_tube.u
+    @test integrator_plate_parallel.u == integrator_plate.u
+
+    # SimuResult = SimulationResult(integrator_tube,integrator_plate);
+
+    for t in tspan[1]:tstep:tspan[1]
+    
+        timemarching!(integrator_tube,integrator_plate,tstep,force_sequential=true)
+        timemarching!(integrator_tube_parallel,integrator_plate_parallel,tstep)
+
+    end
+
+    @test integrator_tube_parallel.u == integrator_tube.u
+    @test integrator_plate_parallel.u == integrator_plate.u
 end
