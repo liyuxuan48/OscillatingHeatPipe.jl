@@ -515,6 +515,9 @@ end
 
 @testset "Multithreading" begin
 
+    @test Threads.nthreads() > 1
+    println("num of threads= ",Threads.nthreads())
+
     sys_tube = initialize_ohpsys(sys_plate,p_fluid,power)
 
     tspan = (0.0, 1.0); # start time and end time
