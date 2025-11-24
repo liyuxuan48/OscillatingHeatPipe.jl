@@ -68,7 +68,7 @@ Perform one time step of size `tstep` for both the tube and plate integrators, e
 This is a Jacobi style weakly coupled alternate time marching (exchange info at the same time after each step)
 """
 
-function timemarching!(integrator_tube::ODEIntegrator,integrator_plate::ODEIntegrator,tstep::Float64)
+function timemarching!(integrator_tube::ODEIntegrator,integrator_plate::ODEIntegrator,tstep::Float64; force_sequential::Bool=false)
 
     # initial exchange info at t=0
     if isapprox(integrator_tube.t,0.0)
@@ -76,11 +76,21 @@ function timemarching!(integrator_tube::ODEIntegrator,integrator_plate::ODEInteg
         println("Initial exchange info done.")
     end
 
-    # use two threads to step the two integrators together
-    @sync begin
-         Threads.@spawn step!(integrator_tube,tstep,true);
-         Threads.@spawn step!(integrator_plate,tstep,true);
-    end
+    # CONDITIONAL EXECUTION SWITCH
+    if force_sequential
+        # Single-threaded execution (RUN SEQUENTIALLY)
+        # This acts as your reference control run
+        step!(integrator_tube, tstep, true)
+        step!(integrator_plate, tstep, true)
+    else
+        # Multi-threaded execution (RUN PARALLEL)
+        # use two threads to step the two integrators together
+        @sync begin
+            Threads.@spawn step!(integrator_tube,tstep,true);
+            Threads.@spawn step!(integrator_plate,tstep,true);
+        end
+
+    end    
 
     # exchange info after stepping at each time step
     exchangepinfo!(integrator_tube,integrator_plate)
