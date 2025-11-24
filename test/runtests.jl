@@ -5,6 +5,8 @@ using Test
 
 const GROUP = get(ENV, "GROUP", "All")
 
+println(Threads.nthreads())
+
 ENV["GKSwstype"] = "nul" # removes GKS warnings during plotting
 
 macro mysafetestset(args...)
