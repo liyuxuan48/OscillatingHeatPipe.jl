@@ -419,8 +419,9 @@ end
 
 @recipe function f(::OHPV, SimuResult::SimulationResult)  
     
-    sysfinal = getcurrentsys_nowall.(SimuResult.tube_hist_u,[SimuResult.integrator_tube.p]);
     thist = SimuResult.tube_hist_t
+    sysfinal = getcurrentsys.([SimuResult],1:length(thist));
+
     
     Vavg_hist = []
     Vabsavg_hist = []
