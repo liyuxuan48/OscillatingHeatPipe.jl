@@ -4,36 +4,38 @@ using LinearAlgebra
 
 heaviside(x::AbstractFloat) = ifelse(x < 0, zero(x), ifelse(x > 0, one(x), oftype(x,0.0)))
 
+hc = 4500 # condenser coeff
+h_adiabatic = 160 # adiabatic coeff
+length_ohpchannel_mm = 141 # x range of the ohp in mm
+power = 30 # Watt
 
-ρₛ = 2730 # material density [kg/m^3]
-cₛ  = 8.93e02 # material specific heat [J/kg K]
-kₛ  = 1.93e02 # material heat conductivity
+ρₛ = 2730; # material density [kg/m^3] Aluminum3003-O
+cₛ  = 8.93e02; # material specific heat [J/kg K]
+# kₛ  = 2.37e02; # material heat conductivity Aluminum6061
+kₛ  = 1.93e02; # material heat conductivity Aluminum3003-O
+
+
 αₛ = kₛ/ρₛ/cₛ
-    
-dₛ = 1.5e-3
 
-Tref = 291.2 # reference temperature
+dₛ = 1.37e-3; # effective d (The thickness of an ideal uniform thickness plate occupying the same volume)
+
+Tref = 291.15# reference temperature (try higher!)
 fluid_type = "Butane"
 p_fluid = SaturationFluidProperty(fluid_type,Tref) # This function relies on CoolProp.jl package
 
-power = 30 # [W], total power
-areaheater_area = 50e-3 * 50e-3 # [m] total area
+tube_d = 1e-3
 
-function get_qbplus(t,x,base_cache,phys_params,motions)
-    nrm = normals(base_cache)
-    qbplus = zeros_surface(base_cache)
-    return qbplus
-end
-    
-function get_qbminus(t,x,base_cache,phys_params,motions)
-    nrm = normals(base_cache)
-    qbminus = zeros_surface(base_cache)
-    # qbminus .= nrm.u
-    return qbminus
-end
+Δx = 0.000633 # [m]
 
-bcdict = Dict("exterior" => get_qbplus,"interior" => get_qbminus)
-    
+Lx = 6*INCHES*1.02; # plate size x [m]
+Ly = 1.981*INCHES*1.06; # plate size y [m]
+xlim = (-Lx/2,Lx/2) # plate x limits
+ylim = (-Ly/2,Ly/2) # plate y limits
+
+g = PhysicalGrid(1.03 .* xlim,1.1 .* ylim,Δx); # build a gird slightly larger than the plate
+
+# power = 80 # Watt
+areaheater_area = 50e-3 * 50e-3
 
 phys_params = Dict( "diffusivity"              => αₛ,
                     "flux_correction"          => ρₛ*cₛ*dₛ,
@@ -43,76 +45,117 @@ phys_params = Dict( "diffusivity"              => αₛ,
                     "areaheater_power"         => power, # total power
                     "areaheater_area"          => areaheater_area, # total area
                     "areaheater_temp"          => 0.0,   # relative temperature compared with "background temperature"
-                    "areaheater_coeff"         => 4000.0,
+                    "areaheater_coeff"         => hc,
+                    "adiabatic_coeff"          => h_adiabatic,
                     "background temperature"   => Tref
                      )
+     
 
-Δx = 0.0007 # [m] # grid size, at the same order of 1D OHP channel node spacing ~ 0.001[m]
+Δs = 1.4*cellsize(g)
 
-Lx = 6*INCHES*1.02 # plate size x [m]
-Ly = 2*INCHES*1.05 # plate size y [m]
-xlim = (-Lx/2,Lx/2) # plate x limits
-ylim = (-Ly/2,Ly/2) # plate y limits
-    
-g = PhysicalGrid(1.03 .* xlim,1.1 .* ylim,Δx)
-
-Δs = 1.4*cellsize(g) # 1D OHP node spacing, here it is 1.4Δx
-
+trim = 0.006
+cond_block = 1.1INCHES
 xbound = [ -Lx/2,-Lx/2, 
-             Lx/2, Lx/2] # x coordinates of the shape
-
+            Lx/2, Lx/2];
 ybound = [  Ly/2,-Ly/2, 
-            -Ly/2, Ly/2] # y coordinates of the shape
-
+           -Ly/2, Ly/2];
 body = Polygon(xbound,ybound,Δs)
-    
-X = MotionTransform([0,0],0) # move the plate or rotate the plate
+
+X = MotionTransform([0,0],0)
 joint = Joint(X)
 m = RigidBodyMotion(joint,body)
 x = zero_motion_state(body,m)
 update_body!(body,x,m)
 
+Lx_a = 6*INCHES; # plate size x [m]
+Ly_a = 1.981*INCHES; # plate size y [m]
+xbound_a = [ -Lx_a/2,-Lx_a/2, 
+            Lx_a/2, Lx_a/2];
+ybound_a = [  Ly_a/2,-Ly_a/2, 
+           -Ly_a/2, Ly_a/2];
+body_a = Polygon(xbound_a,ybound_a,Δs)
+update_body!(body_a,x,m)
+
+function get_qbplus(t,x,base_cache,phys_params,motions)
+    nrm = normals(base_cache)
+    qbplus = zeros_surface(base_cache)
+    return qbplus
+end
+
+function get_qbminus(t,x,base_cache,phys_params,motions)
+    nrm = normals(base_cache)
+    qbminus = zeros_surface(base_cache)
+    # qbminus .= nrm.u
+    return qbminus
+end
+
+bcdict = Dict("exterior" => get_qbplus,"interior" => get_qbminus)
+
 function heatermodel!(σ,T,t,fr::AreaRegionCache,phys_params)
     σ .= phys_params["areaheater_power"] / phys_params["areaheater_area"] / phys_params["flux_correction"] 
 end
+
 
 function condensermodel!(σ,T,t,fr::AreaRegionCache,phys_params)
     T0 = phys_params["areaheater_temp"]
     h = phys_params["areaheater_coeff"]
     corr = phys_params["flux_correction"] 
-    
+
     σ .= h*(T0 - T) / corr
 end
 
-fregion1_h = Rectangle(25e-3,25e-3,1.4*Δx)
+function adiabaticmodel!(σ,T,t,fr::AreaRegionCache,phys_params)
+    T0 = phys_params["areaheater_temp"]
+    h = phys_params["adiabatic_coeff"]
+    corr = phys_params["flux_correction"] 
+
+    σ .= h*(T0 - T)/ corr
+end
+
+fregion1_h = Rectangle(25e-3,25e-3,1.4*Δx) # H01
 tr1_h = RigidTransform((0.0,-0.0),0.0)
-heater1 = AreaForcingModel(fregion1_h,tr1_h,heatermodel!)
 
-fregion1_c = Rectangle(15e-3,1.0INCHES,1.4*Δx)
-tr1_c = RigidTransform((2.4INCHES,-0.0),0.0)
-cond1 = AreaForcingModel(fregion1_c,tr1_c,condensermodel!)
+heater1 = AreaForcingModel(fregion1_h,tr1_h,heatermodel!);
 
-ds = 1.5Δx
-nturn = 13
-width_ohp = 46.25*1e-3
-length_ohp = 147.0*1e-3
-gap = 3e-3
-pitch = width_ohp/(2*nturn+1)
-x0, y0 = length_ohp/2 +2e-3, width_ohp/2
+fregion1_c = Rectangle(7.5e-3,Ly_a/2,1.4*Δx)
+tr1_c = RigidTransform((3INCHES-7.5e-3,-0.0),0.0)
 
-x, y, xf, yf = construct_ohp_curve(nturn,pitch,length_ohp,gap,ds,x0,y0,false,false,3pi/2)
+fregion2_c = deepcopy(fregion1_c)
+tr2_c = RigidTransform((-(3INCHES-7.5e-3),-0.0),0.0)
+
+cond1 = AreaForcingModel(fregion1_c,tr1_c,condensermodel!);
+cond2 = AreaForcingModel(fregion2_c,tr2_c,adiabaticmodel!);
+
+# x, y = construct_ohp_curve("ASETS",Δx) # get x and y coordinates for the channel
+    ds = 1.5Δx
+    nturn = 16
+    width_ohp = 1.821*INCHES - tube_d
+    length_ohp = 5.34*INCHES + (length_ohpchannel_mm *1e-3 - 5.34*INCHES)
+    gap = 0.11INCHES - 0.5*tube_d
+    pitch = width_ohp/(2*nturn+1)
+
+    x0, y0 = Lx_a/2 - 0.34*INCHES - 0.5*tube_d + (length_ohpchannel_mm *1e-3 - 5.34*INCHES), width_ohp/2
+    x, y, xf, yf = construct_ohp_curve(nturn,pitch,length_ohp,gap,ds,x0,y0,false,false,3pi/2)
+
 ohp = BasicBody(x,y) # build a BasicBody based on x,y
+
 tr_ohp = RigidTransform((0.0,0.0),0.0)
+
+# phys_params["ohp_flux"] = zero(x);
 
 function ohpmodel!(σ,T,t,fr::LineRegionCache,phys_params)
     σ .= phys_params["ohp_flux"] ./ phys_params["flux_correction"] 
 end
-ohp_linesource = LineForcingModel(ohp,tr_ohp,ohpmodel!)
+ohp_linesource = LineForcingModel(ohp,tr_ohp,ohpmodel!);
 
-forcing_dict = Dict("heating models" => [heater1,cond1,ohp_linesource])
+# forcing_dict = Dict("heating models" => [heater1,cond1,ohp_linesource])
+forcing_dict = Dict("heating models" => [heater1,cond1,cond2,ohp_linesource])
 
-tstep = 4e-4
-    
+tspan = (0.0, 300.0); # start time and end time
+dt_record = 0.2   # saving time interval
+
+tstep = 4e-4     # actrual time marching step
+
 timestep_fixed(u,sys) = tstep
 
 prob = NeumannHeatConductionProblem(g,body,scaling=GridScaling,
@@ -121,9 +164,10 @@ prob = NeumannHeatConductionProblem(g,body,scaling=GridScaling,
                                              motions=m,
                                              forcing=forcing_dict,
                                              # timestep_func=timestep_fourier
-                                             timestep_func=timestep_fixed)
+                                             timestep_func=timestep_fixed
+    );
 
-sys_plate = construct_system(prob)
+sys_plate = construct_system(prob);
 
 # test 1, 30 slugs, no heat transfer, given an initial velocity, with and without gravity
 @testset "dynamicsmodel test1" begin
@@ -706,3 +750,8 @@ end
     @test all(isapprox.(qwall,qwall_analytical,atol=1e-12))    
 end
 
+
+@testset "heater area (for Rectangle only)" begin
+    total_heater_area = (maximum(heater1.shape.x) - minimum(heater1.shape.x)) * (maximum(heater1.shape.y) - minimum(heater1.shape.y))
+    @test isapprox(total_heater_area, areaheater_area, atol=1e-12)
+end

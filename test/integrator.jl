@@ -1,134 +1,10 @@
 using Statistics
+using JLD2
 
 heaviside(x::AbstractFloat) = ifelse(x < 0, zero(x), ifelse(x > 0, one(x), oftype(x,0.0)))
 
 
 using OscillatingHeatPipe # our main package
-
-ρₛ = 2730 # material density [kg/m^3]
-cₛ  = 8.93e02 # material specific heat [J/kg K]
-kₛ  = 1.93e02 # material heat conductivity
-αₛ = kₛ/ρₛ/cₛ
-    
-dₛ = 1.5e-3
-
-Tref = 291.2 # reference temperature
-fluid_type = "Butane"
-p_fluid = SaturationFluidProperty(fluid_type,Tref) # This function relies on CoolProp.jl package
-
-power = 30 # [W], total power
-areaheater_area = 50e-3 * 50e-3 # [m] total area
-
-function get_qbplus(t,x,base_cache,phys_params,motions)
-    nrm = normals(base_cache)
-    qbplus = zeros_surface(base_cache)
-    return qbplus
-end
-    
-function get_qbminus(t,x,base_cache,phys_params,motions)
-    nrm = normals(base_cache)
-    qbminus = zeros_surface(base_cache)
-    # qbminus .= nrm.u
-    return qbminus
-end
-
-bcdict = Dict("exterior" => get_qbplus,"interior" => get_qbminus)
-    
-
-phys_params = Dict( "diffusivity"              => αₛ,
-                    "flux_correction"          => ρₛ*cₛ*dₛ,
-                    # "angular velocity"         => 0.0,
-                    "Fourier"                  => 1.0,
-                    "ohp_flux"                 => [NaN], # initial value, the value here is useless
-                    "areaheater_power"         => power, # total power
-                    "areaheater_area"          => areaheater_area, # total area
-                    "areaheater_temp"          => 0.0,   # relative temperature compared with "background temperature"
-                    "areaheater_coeff"         => 4000.0,
-                    "background temperature"   => Tref
-                     )
-
-Δx = 0.0007 # [m] # grid size, at the same order of 1D OHP channel node spacing ~ 0.001[m]
-
-Lx = 6*INCHES*1.02 # plate size x [m]
-Ly = 2*INCHES*1.05 # plate size y [m]
-xlim = (-Lx/2,Lx/2) # plate x limits
-ylim = (-Ly/2,Ly/2) # plate y limits
-    
-g = PhysicalGrid(1.03 .* xlim,1.1 .* ylim,Δx)
-
-Δs = 1.4*cellsize(g) # 1D OHP node spacing, here it is 1.4Δx
-
-xbound = [ -Lx/2,-Lx/2, 
-             Lx/2, Lx/2] # x coordinates of the shape
-
-ybound = [  Ly/2,-Ly/2, 
-            -Ly/2, Ly/2] # y coordinates of the shape
-
-body = Polygon(xbound,ybound,Δs)
-    
-X = MotionTransform([0,0],0) # move the plate or rotate the plate
-joint = Joint(X)
-m = RigidBodyMotion(joint,body)
-x = zero_motion_state(body,m)
-update_body!(body,x,m)
-
-function heatermodel!(σ,T,t,fr::AreaRegionCache,phys_params)
-    σ .= phys_params["areaheater_power"] / phys_params["areaheater_area"] / phys_params["flux_correction"] 
-end
-
-function condensermodel!(σ,T,t,fr::AreaRegionCache,phys_params)
-    T0 = phys_params["areaheater_temp"]
-    h = phys_params["areaheater_coeff"]
-    corr = phys_params["flux_correction"] 
-    
-    σ .= h*(T0 - T) / corr
-end
-
-fregion1_h = Rectangle(25e-3,25e-3,1.4*Δx)
-tr1_h = RigidTransform((0.0,-0.0),0.0)
-heater1 = AreaForcingModel(fregion1_h,tr1_h,heatermodel!)
-
-fregion1_c = Rectangle(15e-3,1.0INCHES,1.4*Δx)
-tr1_c = RigidTransform((2.4INCHES,-0.0),0.0)
-cond1 = AreaForcingModel(fregion1_c,tr1_c,condensermodel!)
-
-ds = 1.5Δx
-nturn = 13
-width_ohp = 46.25*1e-3
-length_ohp = 147.0*1e-3
-gap = 3e-3
-pitch = width_ohp/(2*nturn+1)
-x0, y0 = length_ohp/2 +2e-3, width_ohp/2
-
-x, y, xf, yf = construct_ohp_curve(nturn,pitch,length_ohp,gap,ds,x0,y0,false,false,3pi/2)
-ohp = BasicBody(x,y) # build a BasicBody based on x,y
-tr_ohp = RigidTransform((0.0,0.0),0.0)
-
-function ohpmodel!(σ,T,t,fr::LineRegionCache,phys_params)
-    σ .= phys_params["ohp_flux"] ./ phys_params["flux_correction"] 
-end
-ohp_linesource = LineForcingModel(ohp,tr_ohp,ohpmodel!)
-
-forcing_dict = Dict("heating models" => [heater1,cond1,ohp_linesource])
-
-
-    tspan = (0.0, 5.0); # start time and end time
-    dt_record = 0.01   # saving time interval
-
-    tstep = 1e-3     # actrual time marching step
-    
-timestep_fixed(u,sys) = tstep
-
-prob = NeumannHeatConductionProblem(g,body,scaling=GridScaling,
-                                             phys_params=phys_params,
-                                             bc=bcdict,
-                                             motions=m,
-                                             forcing=forcing_dict,
-                                             # timestep_func=timestep_fourier
-                                             timestep_func=timestep_fixed)
-
-sys_plate = construct_system(prob)
-
 
 # test 1, boiling callbacks
 @testset "merging callbacks" begin
@@ -146,7 +22,7 @@ sys_plate = construct_system(prob)
     Xp_old = sys_tube.liquid.Xp
     Xp_new = deepcopy(Xp_old)
 
-    dXp = mod(Xp_new[2][1] - Xp_new[1][end],L) - 0.4*L_newbubble
+    dXp = mod(Xp_new[2][1] - Xp_new[1][end],L) - 0.8*OscillatingHeatPipe.DEFAULT_LIQUID_MERGE_FRAC*L_newbubble
     @test  dXp > 0.0
 
     Xp_new[2] =  (Xp_new[2][1] - dXp,Xp_new[2][2] - dXp) # make two vapor plugs close enough to merge
@@ -267,8 +143,7 @@ end
 
 
     @test integrator_tube.p.wall.boiltime_stations == [0.0,tstep]
-
-    println
+    @test integrator_plate.t == tstep
 
     timemarching!(integrator_tube,integrator_plate,tstep)
 
@@ -411,9 +286,9 @@ end
     A_SMALL_FRAC = 1e-2
 
     sys_tube = initialize_ohpsys(sys_plate,p_fluid,power)
-    u_tube_1 = newstate(sys_tube) # initialize OHP tube 
-    integrator_tube_1 = init(u_tube_1,tspan,deepcopy(sys_tube)); # construct integrator_tube
-    @test vaporMergingCondition(integrator_tube_1.u,integrator_tube_1.t,integrator_tube_1) == false
+    u_tube_0 = newstate(sys_tube) # initialize OHP tube 
+    integrator_tube_0 = init(u_tube_0,tspan,deepcopy(sys_tube)); # construct integrator_tube
+    @test vaporMergingCondition(integrator_tube_0.u,integrator_tube_0.t,integrator_tube_0) == false
 
     L_newbubble= sys_tube.wall.L_newbubble
     L = sys_tube.tube.L
@@ -421,7 +296,17 @@ end
     Xp_old = sys_tube.liquid.Xp
     Xp_new = deepcopy(Xp_old)
 
-    dXp = mod(Xp_new[2][2] - Xp_new[2][1],L) - 0.4*L_newbubble
+    dXp = mod(Xp_new[2][2] - Xp_new[2][1],L) - 1.1*OscillatingHeatPipe.DEFAULT_VAPOR_MERGE_FRAC*L_newbubble
+    Xp_new[2] =  (Xp_new[2][1], Xp_new[2][2] - dXp) # make two liquid slugs not close enough to merge
+
+    sys_tube.liquid.Xp = deepcopy(Xp_new)
+
+    u_tube_1 = newstate(sys_tube) # initialize OHP tube 
+    integrator_tube_1 = init(u_tube_1,tspan,deepcopy(sys_tube)); # construct integrator_tube
+
+    @test vaporMergingCondition(integrator_tube_1.u,integrator_tube_1.t,integrator_tube_1) == false
+
+    dXp = mod(Xp_new[2][2] - Xp_new[2][1],L) - 0.9*OscillatingHeatPipe.DEFAULT_VAPOR_MERGE_FRAC*L_newbubble
     Xp_new[2] =  (Xp_new[2][1], Xp_new[2][2] - dXp) # make two liquid slugs close enough to merge
 
     sys_tube.liquid.Xp = deepcopy(Xp_new)
@@ -479,7 +364,7 @@ end
 
     tstep = 1e-3     # actrual time marching step
 
-    u_plate = init_sol(sys_plate) .+ 10.0# initialize plate T field to uniform Tref
+    u_plate = init_sol(sys_plate)# initialize plate T field to uniform Tref
     integrator_plate = init(u_plate,tspan,sys_plate) # construct integrator_plate
 
     u_tube = newstate(sys_tube) # initialize OHP tube 
@@ -487,15 +372,31 @@ end
 
     SimuResult = SimulationResult(integrator_tube,integrator_plate);
 
-    @test all(isapprox.(integrator_tube.p.wall.θarray,Tref, rtol=1e-10))
+    @test all(isapprox.(integrator_tube.p.wall.θarray,Tref, rtol=1e-12))
 
     timemarching!(integrator_tube,integrator_plate,tstep)
 
-    @test !all(isapprox.(integrator_tube.p.wall.θarray,Tref, rtol=1e-10))
+    println(integrator_plate.t)
 
+    # because they exchange data after time marching, the wall temperature should no longer be Tref
+    @test !all(isapprox.(integrator_tube.p.wall.θarray,Tref, rtol=1e-12))
+    @test integrator_plate.t == tstep
+
+    # record system state at t_n
+    integrator_tube_n = deepcopy(integrator_tube)
+    save("Coupling_int_plate.jld2","integrator_plate",integrator_plate)
+    integrator_plate_n = load("Coupling_int_plate.jld2")["integrator_plate"]
+    t_n = deepcopy(integrator_tube.t)
+
+    # change plate temperature and create a new integrator_plate
+    integrator_plate_n.u .+= 20.0 # increase plate temperature by 20K
     timemarching!(integrator_tube,integrator_plate,tstep)
+    timemarching!(integrator_tube_n,integrator_plate_n,tstep)
 
-    @test !all(isapprox.(integrator_tube.p.wall.θarray,Tref, rtol=1e-10))
+    # because they exchange data after time marching, this change of plate 
+    # temperature should not affect the wall temperature of the tube
+    @test !all(isapprox.(integrator_tube.p.wall.θarray,Tref, rtol=1e-12))
+    @test all(isapprox.(integrator_tube_n.u,integrator_tube.u, rtol=1e-12))
 
     store!(SimuResult,integrator_tube,integrator_plate)
 
@@ -507,16 +408,17 @@ end
     randX = rand()*L
     @test p_old.mapping.θ_interp_walltoliquid(randX) == integrator_tube.p.mapping.θ_interp_walltoliquid(randX)
     @test all(p_old.vapor.P .== integrator_tube.p.vapor.P)
+    @test all(p_old.liquid.θarrays .== integrator_tube.p.liquid.θarrays)
+    @test p_old.wall.θarray == integrator_tube.p.wall.θarray
     @test SimuResult.tube_hist_θwall[end] == integrator_tube.p.wall.θarray
     @test SimuResult.tube_hist_u[end] == integrator_tube.u
     @test SimuResult.tube_hist_t[end] == integrator_tube.t
 end
 
-
-@testset "Multithreading" begin
-
-    @test Threads.nthreads() > 1
-    println("num of threads= ",Threads.nthreads())
+@testset "Coupling Scheme Identification" begin
+    # 1. Setup a fresh system for identification
+    # We reuse the variables defined in the previous scope if available, 
+    # or you can re-initialize here to ensure total independence.
 
     sys_tube = initialize_ohpsys(sys_plate,p_fluid,power)
 
@@ -525,28 +427,102 @@ end
 
     tstep = 1e-3     # actrual time marching step
 
-    u_plate = init_sol(sys_plate) .+ 10.0# initialize plate T field to uniform Tref
+    u_plate = init_sol(sys_plate)# initialize plate T field to uniform Tref
     integrator_plate = init(u_plate,tspan,sys_plate) # construct integrator_plate
 
     u_tube = newstate(sys_tube) # initialize OHP tube 
     integrator_tube = init(u_tube,tspan,deepcopy(sys_tube)); # construct integrator_tube
 
+    tspan = (0.0, 1.0); # start time and end time
 
-    integrator_plate_parallel = deepcopy(integrator_plate)
+    # 2. Advance a few steps to reach a non-zero state
+    t_step_id = 1e-3
+    for _ in 1:3
+        timemarching!(integrator_tube, integrator_plate, t_step_id)
+    end
+
+    # 3. Record baseline state at t_n
+    save("Coupling_int_plate.jld2","integrator_plate",integrator_plate)
+    integrator_tube_n = deepcopy(integrator_tube)
+    # integrator_plate_n = deepcopy(integrator_plate)
+    t_n = deepcopy(integrator_tube.t)
+
+    # Get reference pressure at t_{n+1} without any perturbation
+    timemarching!(integrator_tube, integrator_plate, t_step_id)
+    p_reference = deepcopy(getcurrentsys_nowall!(integrator_tube.u, integrator_tube.p).vapor.P)
+
+    # 4. Reset to t_n for the perturbation test
+    integrator_tube = deepcopy(integrator_tube_n)
+    integrator_plate = load("Coupling_int_plate.jld2")["integrator_plate"]
+
+    # 5. Apply thermal perturbation (+50K) to the plate
+    # This happens immediately before the marching call
+    integrator_plate.u .+= 50.0 
+    # 6. Run the marching step with the perturbation
+    timemarching!(integrator_tube, integrator_plate, t_step_id)
+    p_perturbed = getcurrentsys_nowall!(integrator_tube.u, integrator_tube.p).vapor.P
+
+    # 7. Identify coupling logic
+    # Jacobian (Synchronous/Parallel): Fluid solver uses values from t_n, ignoring the +50K jump.
+    # Gauss-Seidel (Sequential): Fluid solver sees the +50K jump and adjusts P immediately.
+    is_jacobian = all(isapprox.(p_reference, p_perturbed, atol=1e-12))
+
+    if is_jacobian
+        println("\n[Coupling Test]: Jacobian Scheme Identified")
+        println(" - Logic: Synchronous/Parallel execution.")
+        println(" - Observation: Fluid solver is independent of plate changes within the same step.")
+    else
+        println("\n[Coupling Test]: Gauss-Seidel Scheme Identified")
+        println(" - Logic: Sequential/Successive execution.")
+        println(" - Observation: Fluid solver responded immediately to the plate perturbation.")
+    end
+
+    #  Explicitly test based on your current goal (Optional)
+    @test is_jacobian 
+end
+
+
+@testset "Multithreading" begin
+
+    @test Threads.nthreads() > 1
+    println("This test requires multiple threads (>1) to run.")
+    println("num of threads= ",Threads.nthreads())
+
+    sys_tube = initialize_ohpsys(sys_plate,p_fluid,power)
+
+    tspan = (0.0, 2.0); # start time and end time
+    dt_record = 2.0   # saving time interval
+
+    tstep = 4e-4     # actrual time marching step
+
+    u_plate = init_sol(sys_plate) .+10.0# initialize plate T field to uniform Tref
+    integrator_plate = init(u_plate,tspan,sys_plate) # construct integrator_plate
+
+    u_tube = newstate(sys_tube) # initialize OHP tube 
+    integrator_tube = init(u_tube,tspan,deepcopy(sys_tube)); # construct integrator_tube
+
     integrator_tube_parallel = deepcopy(integrator_tube)
+    save("Coupling_int_plate.jld2","integrator_plate",integrator_plate)
 
-    @test integrator_tube_parallel.u == integrator_tube.u
-    @test integrator_plate_parallel.u == integrator_plate.u
-
-    # SimuResult = SimulationResult(integrator_tube,integrator_plate);
-
-    for t in tspan[1]:tstep:tspan[1]
+    for t in tspan[1]:tstep:tspan[2]
     
         timemarching!(integrator_tube,integrator_plate,tstep,force_sequential=true)
+
+    end
+
+    integrator_plate_parallel = load("Coupling_int_plate.jld2")["integrator_plate"]
+    
+
+    for t in tspan[1]:tstep:tspan[2]
+    
         timemarching!(integrator_tube_parallel,integrator_plate_parallel,tstep)
 
     end
 
+
+    # SimuResult = SimulationResult(integrator_tube,integrator_plate);
+
     @test integrator_tube_parallel.u == integrator_tube.u
     @test integrator_plate_parallel.u == integrator_plate.u
+    @test integrator_tube.p.cache.boil_hist == integrator_tube_parallel.p.cache.boil_hist
 end

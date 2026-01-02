@@ -36,9 +36,9 @@ docdir = "../docs/src/manual"
 litdir = "./literate"
 
 if GROUP == "All" || GROUP == "Auxiliary"
-    include("integrator.jl")
     include("thermomodel.jl")
     include("correlations.jl")
+    include("integrator.jl")
     include("datastructures.jl")
 end
 
