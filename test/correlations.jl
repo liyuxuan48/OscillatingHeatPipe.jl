@@ -1,5 +1,5 @@
 using Statistics
-using ComputationalHeatTransfer
+# using ComputationalHeatTransfer
 
 # test Ca to δ correlation (Aussillous and Quere, 2000)
 @testset "liquid film thickness correlation" begin
