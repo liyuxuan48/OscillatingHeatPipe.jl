@@ -124,7 +124,7 @@ end
     if plain == false
 
         annotation := [(-0.052+adjust, -0.028, "dry vapor"),(-0.01+0.007+adjust, -0.028, "vapor with film"),
-        (0.04+0.002+adjust, -0.028, "liquid"),(0.0, 0.03, string("time = ", round(tube_hist_t[i], digits=2), "[s]"))]
+        (0.04+0.002+adjust, -0.028, "liquid"),(0.0, 0.03, string("time = ", round(tube_hist_t[i], digits=3), "[s]"))]
 
         @series begin
             # annotation := (0, 0, "Look up!")
@@ -145,7 +145,7 @@ end
             [0.03+adjust],[-0.028]
         end
     else
-        annotation := [(0.0, 0.03, string("time = ", round(tube_hist_t[i], digits=2), "[s]"))]
+        annotation := [(0.0, 0.03, string("time = ", round(tube_hist_t[i], digits=3), "[s]"))]
     end
     
     ohp
@@ -541,7 +541,7 @@ end
 
     xlabel := "ξ [m]"
     linewidth := 2
-    title := string(" time = ", round(time; digits = 3))
+    title := string(" time = ", round(time; digits = 3), " [s]")
 
     # layout := (3,1)
     if plottype == "T"

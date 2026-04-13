@@ -1,4 +1,4 @@
-export SimulationResult,onesideXp,randomXp,initialize_ohpsys,store!,newstate
+export SimulationResult,customXp,onesideXp,randomXp,initialize_ohpsys,store!,newstate
 
 """
 (WIP)
@@ -6,32 +6,54 @@ export SimulationResult,onesideXp,randomXp,initialize_ohpsys,store!,newstate
 a more general way to generate the liquid slugs
 """
 
-function onesideXp(ohp,tube::Tube,line)
-    
-    A = line[1]
-    B = line[2]
-    C = line[3]
-    sign = line[4]
+function customXp(ohp, tube::Tube, f = (x, y) -> -1.0)
 
-    L = tube.L
-    Lmin = tube.d
-    
-    body = ohp.body
-    
-    largeorsmall = A .* body.x .+ B .* body.y .+ C .< 0
+    @unpack L = tube
 
-    ls_label = xor.(largeorsmall, [largeorsmall[2:end];largeorsmall[1]])
-    X0array_label = findall(!iszero,ls_label)
-    X0array = ohp.arccoordmid[X0array_label]
+    ξ1D = arccoordmid(ohp.shape)
+    dξ = minimum(diff(ξ1D)) * DEFAULT_XP_SCAN_INTERVAL
+    ξrange = dξ:dξ:ξ1D[end]
 
-    X0 = map(tuple,X0array[1:2:end], X0array[2:2:end])
+    x2D, y2D = oneDtwoDtransform(ξrange, ohp::LineForcingModel)
+
+    # 1. Create boolean mask
+    flags = f.(x2D, y2D) .> 0
+    
+    # Early exit if the tube is entirely vapor
+    if !any(flags)
+        return Tuple{Float64, Float64}[], Vector{Float64}[], 0.0
+    end
+
+    # 2. Find transitions securely
+    # Convert Bool to Int to safely use diff(): 
+    # 0 -> 1 becomes 1 (Start of slug)
+    # 1 -> 0 becomes -1 (End of slug)
+    d_flags = diff(Int.(flags))
+
+    # +1 adjusts for the index shift caused by diff()
+    starts = findall(==(1), d_flags) .+ 1 
+    ends = findall(==(-1), d_flags)
+
+    # 3. Handle boundary conditions at the inlet and outlet
+    # If the tube starts with liquid, the first slug starts at index 1
+    if flags[1]
+        pushfirst!(starts, 1)
+    end
+    
+    # If the tube ends with liquid, the last slug ends at the last index
+    if flags[end]
+        push!(ends, length(flags))
+    end
+
+    # 4. Construct X0 using explicit starts and ends
+    X0 = [(ξrange[starts[i]], ξrange[ends[i]]) for i in eachindex(starts)]
 
     dXdt0 = [zero.(X) for X in X0]
 
-    Ls = XptoLliquidslug(X0,L)
-    real_ratio = sum(Ls)/L
+    Ls = XptoLliquidslug(X0, L)
+    real_ratio = sum(Ls) / L
     
-    X0,dXdt0,real_ratio
+    return X0, dXdt0, real_ratio
 end
 
 """
@@ -157,7 +179,8 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
                                                         nucleatenum = DEFAULT_NUCLEATENUM,
                                                         L_newbubble = DEFAULT_L_NEWBUBBLE,
                                                         ch_ratio=DEFAULT_LIQUID_CHARGE_RATIO,
-                                                        σcharge=DEFAULT_SIGMA_CHARGE)
+                                                        σcharge=DEFAULT_SIGMA_CHARGE,
+                                                        distribution_func=DEFAULT_DISTRIBUTION_FUNC)
 
     # unpack CoolProp Properties
     @unpack fluid_type,Tref,kₗ,ρₗ,Cpₗ,αₗ,μₗ,σ = p_fluid  
@@ -175,7 +198,15 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
 
     # Liquid
     Hₗ = p_fluid.kₗ/d * Nu # Nusselt number given
-    X0,dXdt0,liquid_realratio = randomXp(tube,numofslugs=slugnum,chargeratio=ch_ratio,σ_charge=σcharge) # chargeratio here is nominal volume fraction for liquid slugs only, it is slightly different from actual volume fraction.
+    # distribution_func = (x,y) -> 50x^2 + y - 0.02 # this is just an example, can be replaced by any function to generate different slug distributions
+    if distribution_func != nothing
+        X0,dXdt0,liquid_realratio = customXp(ohp,tube,distribution_func) # chargeratio here is nominal volume fraction for liquid slugs only, it is slightly different from actual volume fraction.
+        println("Custom slug distribution generated with actual liquid volume fraction: ", liquid_realratio)
+    else
+        X0,dXdt0,liquid_realratio = randomXp(tube,numofslugs=slugnum,chargeratio=ch_ratio,σ_charge=σcharge) # chargeratio here is nominal volume fraction for liquid slugs only, it is slightly different from actual volume fraction.
+    end
+    # X0,dXdt0,liquid_realratio = customXp(ohp,tube,distribution_func) # chargeratio here is nominal volume fraction for liquid slugs only, it is slightly different from actual volume fraction.
+    # X0,dXdt0,liquid_realratio = randomXp(tube,numofslugs=slugnum,chargeratio=ch_ratio,σ_charge=σcharge) # chargeratio here is nominal volume fraction for liquid slugs only, it is slightly different from actual volume fraction.
     Xarrays,θarrays = constructXarrays(X0,N,Tref,L)
     
     liquids=Liquid(Hₗ,ρₗ,Cpₗ,αₗ,μₗ,σ,X0,dXdt0,Xarrays,θarrays)
