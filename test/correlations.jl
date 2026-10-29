@@ -11,12 +11,12 @@ using Statistics
     δ = 1.34 * (Ca .^ (2/3)) ./ (1 .+ 3.35 .* (Ca .^ (2/3))) .* d/2
     δ_clamp = clamp.(δ,δmin,δmax)
 
-    @test all(δ_clamp .≈ Catoδ.([d],Ca,δmin=δmin,δmax=δmax))
+    @test all(δ_clamp .≈ Catoδ.([d],Ca,δmin_over_r=δmin/(d/2),δmax_over_r=δmax/(d/2)))
 
     ad_fac = 1 + 0.3 * rand()
 
     δ_clamp_adfac = clamp.(δ .* ad_fac,δmin,δmax)
-    @test all(δ_clamp_adfac .≈ Catoδ.([d],Ca,adjust_factor=ad_fac,δmin=δmin,δmax=δmax))
+    @test all(δ_clamp_adfac .≈ Catoδ.([d],Ca,adjust_factor=ad_fac,δmin_over_r=δmin/(d/2),δmax_over_r=δmax/(d/2)))
 end
 
 # test Churchill friction factor correlation (Churchill, 1977) 

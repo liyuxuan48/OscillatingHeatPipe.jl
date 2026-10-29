@@ -331,8 +331,8 @@ Hfilm(δfilm,sys::AbstractPHP) = Hfilm(δfilm,sys.vapor)
 
 function Hfilm(δfilm,vapor::Vapor)
     @unpack δmin,k,Hᵥ  = vapor
-    δthreshold = FILM_THRESHOLD
-    δmax = FILM_MAX_THICKNESS
+    δthreshold = vapor.δthreshold
+    δmax = vapor.δmax
     kₗ = k
 
     if (δfilm > δthreshold) && (δfilm <= δmax)
@@ -563,13 +563,19 @@ function f_churchill(Re,eps_rel=0.001)
 end
 
 """
-    Catoδ(d,Ca[;adjust_factor=1,δmin=2e-6,δmax=1e-4])
+    Catoδ(d,Ca; adjust_factor=1, δmin_over_r=0.004, δmax_over_r=0.2)
 
 Given capillary number `Ca` and `d`, return the thickness.
 This is a generalization of the Aussillous and Quere formula.
 It uses an adjustment factor that can be tuned empirically.
+Bounds are specified only as radius fractions; output is in metres.
 """
-function Catoδ(d,Ca;adjust_factor=1,δmin=2e-6,δmax=1e-4)
+function Catoδ(d,Ca;adjust_factor=1,δmin_over_r=DEFAULT_FILM_MIN_OVER_R,
+              δmax_over_r=DEFAULT_FILM_MAX_OVER_R)
+    isfinite(d) && d > 0 || throw(ArgumentError("d must be finite and positive"))
+    δmin,δmax = δmin_over_r*d/2,δmax_over_r*d/2
+    all(x -> isfinite(x) && x > 0,(δmin,δmax)) || throw(ArgumentError("Invalid film ratios"))
+    δmin <= δmax || throw(ArgumentError("Require δmin <= δmax"))
 
     δ = 1.34 .* Ca .^ (2/3) ./ (1 .+ 3.35 .* Ca .^ (2/3)) .* d ./ 2 .* adjust_factor
     if (δ < δmin)

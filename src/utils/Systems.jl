@@ -20,7 +20,7 @@ struct Tube
     L::Float64
     g::Vector{Float64}
     closedornot::Bool
-    N::Int64  
+    N::Int64
 end
 
 # function Tube(d,peri,Ac,L,gravity,closedornot,N);
@@ -86,7 +86,11 @@ end
     ad_fac::Float64                 = 1.1
     Hᵥ::Float64                     = 0.0
     k::Float64
-    δmin::Float64                   = 2e-6
+    # Resolved lengths [m], supplied by initialize_ohpsys from diameter ratios.
+    δmin::Float64
+    δthreshold::Float64
+    δmax::Float64
+    δnucleated::Float64
     Eratio_plus::Float64            = 0.15
     Eratio_minus::Float64           = 0.0
     P::Array{Float64,1}

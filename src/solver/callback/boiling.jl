@@ -86,7 +86,7 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
 
     """let's do constant film thickness for now!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"""
     # δdeposit = maximum([5e-5;δstart;δend]) + 1e-6
-    δdeposit = 2e-5
+    δdeposit = sys.vapor.δnucleated
     δstart_new = insert!(δstart,index+1,δdeposit)
     δend_new = insert!(δend,index+1,δdeposit)
 
@@ -97,8 +97,8 @@ function nucleateboiling(sys,Xvapornew,Pinsert)
     loop_minus_index = [Nvapor;1:Nvapor-1]
     loop_minus_index_new = [Nvapor+1;1:Nvapor]
 
-    Lfilm_start_new = insert!(Lfilm_start,index+1,Linsert/8)
-    Lfilm_end_new = insert!(Lfilm_end,index+1,Linsert/8)
+    Lfilm_start_new = insert!(Lfilm_start,index+1,DEFAULT_NEWBUBBLE_FILM_FRAC*Linsert)
+    Lfilm_end_new = insert!(Lfilm_end,index+1,DEFAULT_NEWBUBBLE_FILM_FRAC*Linsert)
 
     Lliquid_adjust = 0
     Xpnew = getnewXp(Xp,index,Xvapornew,Lliquid_adjust,L,closedornot)
@@ -400,7 +400,7 @@ function suitable_for_boiling(p,i)
         L_liquid_left =  mod(p.wall.Xstations[i] - p.liquid.Xp[index][1],p.tube.L)
         L_liquid_right = mod(p.liquid.Xp[index][2] - p.wall.Xstations[i],p.tube.L)
 
-        if (2*L_newbubble> L_liquid_left) || (2*L_newbubble > L_liquid_right)
+        if (DEFAULT_BOIL_CLEARANCE_FRAC*L_newbubble > L_liquid_left) || (DEFAULT_BOIL_CLEARANCE_FRAC*L_newbubble > L_liquid_right)
             suitable_flag = false
         end
 

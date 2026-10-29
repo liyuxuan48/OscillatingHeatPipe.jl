@@ -26,7 +26,7 @@ function dynamicsmodel(u::Array{Float64,1},p::PHPSystem)
     Ca = getCa.(μₗ,σ,Vavg)
 
     # get liquid film deposition area
-    δdeposit = Catoδ(d,Ca,adjust_factor=ad_fac)
+    δdeposit = Catoδ(d,Ca,adjust_factor=ad_fac,δmin_over_r=sys.vapor.δmin/(d/2),δmax_over_r=sys.vapor.δmax/(d/2))
     Adeposit = getAdeposit(sys,δdeposit)
     Adeposit_left = [elem[1] for elem in Adeposit]
     Adeposit_right = [elem[2] for elem in Adeposit]

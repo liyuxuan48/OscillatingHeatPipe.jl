@@ -140,6 +140,13 @@ Initializes the tube, liquid slugs, vapor regions, wall, and the mappings.
 The inputs are `sys` the embedding substrate of type `ILMSystem` (which is expected to contain the
 OHP geometry as a line source as the last element in the heating models array),
 a tuple of fluid properties `p_fluid`, and the heater power input `power`.
+
+Film settings accept relative values only: δmin_over_r, δthreshold_over_r,
+δmax_over_r and δnucleated_over_r are radius fractions. The initial film
+δfilm_relative remains a radius fraction. Resolved lengths are stored in metres.
+
+Nucleation: nucleatenum is the total number of sites (default 250),
+randomly distributed along the whole flow path.
 """
 function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOSED,
                                                         boil_waiting_time=DEFAULT_BOIL_WAITING_TIME,
@@ -150,6 +157,10 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
                                                         Nu=DEFAULT_NU,
                                                         slugnum=DEFAULT_SLUGNUM,
                                                         δfilm_relative=DEFAULT_DFILM_RELATIVE,
+                                                        δmin_over_r=DEFAULT_FILM_MIN_OVER_R,
+                                                        δthreshold_over_r=DEFAULT_FILM_TRANSITION_OVER_R,
+                                                        δmax_over_r=DEFAULT_FILM_MAX_OVER_R,
+                                                        δnucleated_over_r=DEFAULT_NUCLEATED_FILM_OVER_R,
                                                         film_fraction=DEFAULT_FILM_FRACTION,
                                                         g = DEFAULT_G,
                                                         ηplus=DEFAULT_ETAPLUS,
@@ -159,6 +170,12 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
                                                         ch_ratio=DEFAULT_LIQUID_CHARGE_RATIO,
                                                         σcharge=DEFAULT_SIGMA_CHARGE)
 
+    # Relative inputs -> lengths [m]; all film thicknesses use channel radius.
+    δfilm = δfilm_relative * d/2
+    δmin = δmin_over_r * d/2
+    δthreshold = δthreshold_over_r * d/2
+    δmax = δmax_over_r * d/2
+    δnucleated = δnucleated_over_r * d/2
     # unpack CoolProp Properties
     @unpack fluid_type,Tref,kₗ,ρₗ,Cpₗ,αₗ,μₗ,σ = p_fluid  
 
@@ -185,12 +202,11 @@ function initialize_ohpsys(sys::ILMSystem,p_fluid,power;closedornot=DEFAULT_CLOS
 
     Lvaporplug = XptoLvaporplug(X0,L,tube.closedornot)
     P_initial = zero(Lvaporplug) .+ TtoP(Tref)
-    δfilm = δfilm_relative * d/2
     δstart_initial = zero(Lvaporplug) .+ δfilm
     δend_initial   = zero(Lvaporplug) .+ δfilm
     Lfilm_start_initial = 0.5 .* film_fraction .* Lvaporplug
     Lfilm_end_initial   = deepcopy(Lfilm_start_initial)
-    vapors=Vapor(ad_fac=inertia_f,k = p_fluid.kₗ,P=P_initial,δstart=δstart_initial,δend=δend_initial,Lfilm_start=Lfilm_start_initial,Lfilm_end=Lfilm_end_initial,Eratio_plus=ηplus,Eratio_minus=ηminus);
+    vapors=Vapor(δmin=δmin,δthreshold=δthreshold,δmax=δmax,δnucleated=δnucleated,ad_fac=inertia_f,k = p_fluid.kₗ,P=P_initial,δstart=δstart_initial,δend=δend_initial,Lfilm_start=Lfilm_start_initial,Lfilm_end=Lfilm_end_initial,Eratio_plus=ηplus,Eratio_minus=ηminus);
 
     # Wall
     Xstations = sort(rand(nucleatenum) .* L);
